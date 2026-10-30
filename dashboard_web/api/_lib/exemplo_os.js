@@ -75,6 +75,7 @@ export function osExemplo(veiculos, usuarios, { primeiroId = 1, agora = Date.now
     ['EXECUTADA', 4], ['FECHADA', 12], ['CANCELADA', 1]
   ];
   const os = [], eventos = [];
+  const comEmExecucao = new Set();
   let id = primeiroId;
   const h = (horas) => new Date(agora - horas * 3600 * 1000).toISOString();
   plano.forEach(([status, n]) => {
@@ -111,8 +112,15 @@ export function osExemplo(veiculos, usuarios, { primeiroId = 1, agora = Date.now
         if (abertaPorFilial) ev('APROVADA', admin, t);
       }
       if (depois.slice(1).includes(status)) {
-        // o primeiro mecânico (joao@lokal) sempre tem serviço na lista, para a demonstração
-        o.direcionada_para = ['DIRECIONADA', 'EM_EXECUCAO'].includes(status) && i < 2 ? mec[0] : pega(mec); o.direcionada_por = admin; o.direcionada_em = h(passo());
+        // o primeiro mecânico (joao@lokal) sempre tem serviço na lista, para a demonstração. Em EM_EXECUCAO,
+        // no máximo 1 por mecânico (mesma regra do sistema de verdade: não dá pra iniciar duas ao mesmo tempo).
+        if (status === 'EM_EXECUCAO') {
+          o.direcionada_para = i === 0 ? mec[0] : pega(mec.filter((m) => !comEmExecucao.has(m)));
+          comEmExecucao.add(o.direcionada_para);
+        } else {
+          o.direcionada_para = status === 'DIRECIONADA' && i < 2 ? mec[0] : pega(mec);
+        }
+        o.direcionada_por = admin; o.direcionada_em = h(passo());
         if (r() < 0.3) o.ajudantes = [pega(mec.filter((m) => m !== o.direcionada_para))];
         ev('DIRECIONADA', admin, t, o.direcionada_para);
       }

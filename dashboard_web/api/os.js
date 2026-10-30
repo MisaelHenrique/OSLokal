@@ -151,6 +151,9 @@ async function direcionar(u, os, d) {
 }
 
 async function iniciar(u, os) {
+  // Um mecânico não trabalha em duas OS ao mesmo tempo: só pode iniciar outra depois de fechar a atual.
+  const [emAndamento] = await banco.listar('os', { eq: { direcionada_para: u.login, status: 'EM_EXECUCAO' } });
+  if (emAndamento) throw new ErroOS(409, 'Você já está com a ' + numeroOS(emAndamento.id) + ' em execução. Feche-a antes de iniciar outra.');
   return mudar(os, { status: 'EM_EXECUCAO', iniciada_em: agoraISO() }, 'INICIADA', u.login);
 }
 

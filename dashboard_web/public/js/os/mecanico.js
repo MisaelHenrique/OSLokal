@@ -7,7 +7,7 @@ import { TIPOS, RESULTADOS, numeroOS, lerNumero } from './regras.js';
 import { $, montarTopo, etiquetaParado, campoFoto, idEnvio, registrarServiceWorker, mensagem, fotoGuardada } from './comum.js';
 
 const Fila = self.LokalFila;
-const E = { u: null, lista: [], leituras: {}, fila: [], locais: {}, atualizadoEm: null, semSessao: false };
+const E = { u: null, lista: [], leituras: {}, fila: [], locais: {}, atualizadoEm: null, semSessao: false, aba: 'novas' };
 const conteudo = (...f) => $('conteudo').replaceChildren(...f.flat().filter(Boolean));
 
 iniciar();
@@ -115,6 +115,7 @@ function aviso(texto) {
 const naFila = (id) => E.fila.find((i) => i.os_id === id);
 const responsavel = (o) => o.direcionada_para === E.u.login;
 const oQue = (o) => (o.tipo === 'DIAGNOSTICO' ? 'Avaliar: ' + o.sintoma : (GRUPOS[o.grupo] ? GRUPOS[o.grupo] + ': ' : '') + o.servico);
+const iniciada = (o) => o.status === 'EM_EXECUCAO' || !!(E.locais[o.id] && E.locais[o.id].iniciada_em);
 
 function desenhar() {
   if (!E.u) return;
@@ -128,18 +129,37 @@ function desenhar() {
 }
 
 function telaLista() {
-  const fazer = E.lista.filter((o) => ['DIRECIONADA', 'EM_EXECUCAO'].includes(o.status) && !naFila(o.id))
-    .sort((a, b) => (b.parado - a.parado) || (a.direcionada_em < b.direcionada_em ? -1 : 1));
+  const direcionadas = E.lista.filter((o) => ['DIRECIONADA', 'EM_EXECUCAO'].includes(o.status) && !naFila(o.id));
+  const novas = direcionadas.filter((o) => !iniciada(o)).sort((a, b) => (b.parado - a.parado) || (a.direcionada_em < b.direcionada_em ? -1 : 1));
+  const emExecucao = direcionadas.filter(iniciada).sort((a, b) => (b.parado - a.parado) || (a.direcionada_em < b.direcionada_em ? -1 : 1));
   const guardadas = E.fila.map((i) => ({ i, o: E.lista.find((o) => o.id === i.os_id) || { id: i.os_id, ...(i.resumo || {}) } }));
   const feitas = E.lista.filter((o) => ['EXECUTADA', 'FECHADA'].includes(o.status) && !naFila(o.id))
     .sort((a, b) => (a.executada_em < b.executada_em ? 1 : -1)).slice(0, 15);
+
+  const ABAS = [
+    ['novas', 'Novas', novas.length],
+    ['execucao', 'Em execução', emExecucao.length],
+    ['enviadas', 'Enviadas', guardadas.length + feitas.length]
+  ];
+  const nav = el('nav', { class: 'abas', role: 'tablist' }, ABAS.map(([id, rot, n]) => el('button', {
+    type: 'button', role: 'tab', 'aria-selected': String(id === E.aba), onclick: () => { E.aba = id; telaLista(); }
+  }, [rot, ' ', el('span', { class: 'contagem', text: String(n) })])));
+
+  let corpo;
+  if (E.aba === 'execucao') {
+    corpo = emExecucao.length ? el('div', { class: 'lista-mec' }, emExecucao.map(cartaoOS)) : el('div', { class: 'vazio', text: 'Nenhuma OS em execução agora.' });
+  } else if (E.aba === 'enviadas') {
+    corpo = (guardadas.length || feitas.length) ? el('div', {}, [
+      guardadas.length ? el('div', { class: 'lista-mec' }, guardadas.map(({ i, o }) => cartaoFila(i, o))) : null,
+      feitas.length ? el('div', { class: 'lista-mec' }, feitas.map(cartaoOS)) : null
+    ]) : el('div', { class: 'vazio', text: 'Nenhuma OS enviada ainda.' });
+  } else {
+    corpo = novas.length ? el('div', { class: 'lista-mec' }, novas.map(cartaoOS)) : el('div', { class: 'vazio', text: 'Nenhuma OS nova agora.' });
+  }
+
   conteudo(
-    el('h1', { class: 'titulo-mec', text: 'Para fazer' }),
-    fazer.length ? el('div', { class: 'lista-mec' }, fazer.map(cartaoOS)) : el('div', { class: 'vazio', text: 'Nenhuma OS com você agora.' }),
-    guardadas.length ? el('h2', { class: 'titulo-mec', text: 'Fechadas neste celular' }) : null,
-    guardadas.length ? el('div', { class: 'lista-mec' }, guardadas.map(({ i, o }) => cartaoFila(i, o))) : null,
-    feitas.length ? el('h2', { class: 'titulo-mec', text: 'Feitas recentemente' }) : null,
-    feitas.length ? el('div', { class: 'lista-mec' }, feitas.map(cartaoOS)) : null,
+    el('h1', { class: 'titulo-mec', text: 'Minhas OS' }),
+    nav, corpo,
     el('p', { class: 'dica centro', text: E.atualizadoEm ? 'Lista atualizada em ' + quando(E.atualizadoEm) + '.' : '' }),
     el('p', { class: 'centro' }, el('button', { class: 'botao', type: 'button', text: '⟳ Atualizar lista', onclick: async () => { await atualizarLista(); await enviar(); desenhar(); } })));
 }
@@ -150,8 +170,7 @@ function quando(iso) {
 }
 
 function cartaoOS(o) {
-  const iniciada = o.status === 'EM_EXECUCAO' || (E.locais[o.id] && E.locais[o.id].iniciada_em);
-  const situacao = ['EXECUTADA', 'FECHADA'].includes(o.status) ? 'Enviada ✓' : iniciada ? 'Em execução' : 'Nova';
+  const situacao = ['EXECUTADA', 'FECHADA'].includes(o.status) ? 'Enviada ✓' : iniciada(o) ? 'Em execução' : 'Nova';
   return el('a', { class: 'cartao-mec' + (o.parado && !['EXECUTADA', 'FECHADA'].includes(o.status) ? ' parado' : ''), href: '#os/' + o.id }, [
     el('div', { class: 'l1' }, [el('span', { class: 'placa-grande', text: o.placa || 'sem placa' }), el('span', { class: 'situacao', text: situacao })]),
     el('div', { class: 'l2', text: o.veiculo }),
@@ -190,22 +209,27 @@ function telaOS(id) {
   const o = E.lista.find((x) => x.id === id);
   if (!o) return conteudo(voltar(), el('div', { class: 'aviso amarelo', text: 'Esta OS não está mais na sua lista.' }));
   const i = naFila(id);
-  const iniciada = o.status === 'EM_EXECUCAO' || (E.locais[id] && E.locais[id].iniciada_em);
+  const jaIniciada = iniciada(o);
   const pode = responsavel(o) && ['DIRECIONADA', 'EM_EXECUCAO'].includes(o.status) && !i;
+  // Regra: só uma OS em execução por vez. Ajudante não conta (quem inicia/fecha é sempre o responsável).
+  const outraEmExecucao = !jaIniciada && E.lista.find((x) => x.id !== o.id && x.direcionada_para === E.u.login && x.status === 'EM_EXECUCAO');
   const linha = (k, v) => (v ? [el('dt', { text: k }), el('dd', { text: v })] : []);
   const msg = el('div', { class: 'mensagem erro', hidden: true });
-  const bIniciar = pode && !iniciada ? el('button', { class: 'botao grande', type: 'button', text: '▶ Iniciar serviço', onclick: () => iniciar_(o, bIniciar, msg) }) : null;
+  const bIniciar = pode && !jaIniciada && !outraEmExecucao
+    ? el('button', { class: 'botao grande', type: 'button', text: '▶ Iniciar serviço', onclick: () => iniciar_(o, bIniciar, msg) }) : null;
   conteudo(voltar(),
     el('div', { class: 'cabeca-os' }, [el('h1', { class: 'placa-grande', text: o.placa || 'sem placa' }), etiquetaParado(o)]),
     el('p', { class: 'dica', text: numeroOS(o.id) + ' · ' + TIPOS[o.tipo] + ' · ' + o.veiculo }),
     el('section', { class: 'cartao' }, [el('dl', { class: 'dados' }, [
       ...linha('O que fazer', oQue(o)), ...linha('Local', o.local_servico), ...linha('Filial', o.filial),
       ...linha('Responsável', responsavel(o) ? 'Você' : o.direcionada_para), ...linha('Ajudantes', (o.ajudantes || []).join(', ')),
-      ...linha('Iniciado', iniciada ? quando(o.iniciada_em || E.locais[id].iniciada_em) : ''),
+      ...linha('Iniciado', jaIniciada ? quando(o.iniciada_em || E.locais[id].iniciada_em) : ''),
       ...linha('Último km', E.leituras[o.chassi] && E.leituras[o.chassi].km !== undefined ? fmt.int(E.leituras[o.chassi].km) : ''),
       ...linha('Último horímetro', E.leituras[o.chassi] && E.leituras[o.chassi].horimetro !== undefined ? fmt.dec(E.leituras[o.chassi].horimetro) : '')]),
     navigator.onLine && (o.fotos_problema || []).length ? el('div', { class: 'fotos' }, o.fotos_problema.map((c, n) => fotoGuardada(c, 'Problema ' + (n + 1)))) : null]),
     i ? el('div', { class: 'aviso amarelo', text: 'Você já fechou esta OS neste celular. Aguardando envio.' }) : null,
+    outraEmExecucao ? el('div', { class: 'aviso amarelo', text: 'Você já está com a ' + numeroOS(outraEmExecucao.id) +
+      ' em execução. Feche-a antes de iniciar esta.' }) : null,
     msg,
     pode ? el('div', { class: 'botoes-grandes' }, [bIniciar, el('a', { class: 'botao prim grande', href: '#fechar/' + id, text: '✓ Fechar OS' })]) : null,
     !responsavel(o) && ['DIRECIONADA', 'EM_EXECUCAO'].includes(o.status) ? el('p', { class: 'dica', text: 'Você é ajudante nesta OS. Quem fecha é o responsável.' }) : null);

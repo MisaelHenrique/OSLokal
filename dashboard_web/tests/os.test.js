@@ -2,6 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { chamar, entrar, preparar } from './ajuda.js';
+import { numeroOS } from '../public/js/os/regras.js';
 
 const api = await preparar();
 const { login, os, fotos, veiculos } = api;
@@ -17,6 +18,21 @@ test('entram os perfis', async () => {
   c.joao = await entrar(login, 'joao@lokal');
   c.pedro = await entrar(login, 'pedro@lokal');
   c.dir = await entrar(login, 'diretoria@lokal');
+});
+
+// O banco local de teste é semeado com os mesmos dados de exemplo (exemplo_os.js), que de propósito já deixa o
+// joao@lokal com 1 OS "em execução" para a demonstração nunca ficar vazia. Com a regra de "só uma por vez" isso
+// bloquearia o resto da suíte (que também usa o joao@lokal para testar iniciar/executar) — fecha essa OS do seed
+// primeiro, pra suíte começar com ele livre.
+test('limpa a OS semeada em execução do mecânico de teste', async () => {
+  const lista = await chamar(os, { cookie: c.joao });
+  const presa = lista.d.os.find((o) => o.status === 'EM_EXECUCAO' && o.acoes.includes('executar'));
+  if (!presa) return;
+  const placa = await foto(c.joao, `/api/fotos?tipo=placa&os=${presa.id}&envio=env-limpa-seed`);
+  const serv = await foto(c.joao, `/api/fotos?tipo=servico&os=${presa.id}&envio=env-limpa-seed`);
+  const r = await post(c.joao, { acao: 'executar', id: presa.id, envio_id: 'env-limpa-seed', executada_em: new Date().toISOString(),
+    km: '1', fotos: { placa: placa.d.caminho, servico: serv.d.caminho } });
+  assert.equal(r.status, 200, JSON.stringify(r.d));
 });
 
 let veiculoLuis, veiculoJose, id;
@@ -172,6 +188,24 @@ test('direcionar recusa mais de 5 ajudantes', async () => {
     ajudantes: ['pedro@lokal', 'marcos@lokal', 'rafael@lokal', 'bruno@lokal', 'diego@lokal'] });
   assert.equal(ok.status, 200, JSON.stringify(ok.d));
   assert.equal(ok.d.os.ajudantes.length, 5);
+});
+
+test('mecânico não inicia uma segunda OS enquanto a primeira está em execução', async () => {
+  const a = await post(c.matriz, { acao: 'abrir', chassi: veiculoJose.chassi, tipo: 'SERVICO', grupo: 'FRE', servico: 'OS simultânea A',
+    local_servico: 'Pátio', mecanico: 'joao@lokal' });
+  const b = await post(c.matriz, { acao: 'abrir', chassi: veiculoLuis.chassi, tipo: 'SERVICO', grupo: 'FRE', servico: 'OS simultânea B',
+    local_servico: 'Pátio', mecanico: 'joao@lokal' });
+  const idA = a.d.os.id, idB = b.d.os.id;
+  assert.equal((await post(c.joao, { acao: 'iniciar', id: idA })).status, 200);
+  const bloqueada = await post(c.joao, { acao: 'iniciar', id: idB });
+  assert.equal(bloqueada.status, 409, JSON.stringify(bloqueada.d));
+  assert.match(bloqueada.d.erro, new RegExp(numeroOS(idA)));
+  // fechando a primeira, libera a segunda
+  const placa = await foto(c.joao, `/api/fotos?tipo=placa&os=${idA}&envio=env-simult-a`);
+  const serv = await foto(c.joao, `/api/fotos?tipo=servico&os=${idA}&envio=env-simult-a`);
+  await post(c.joao, { acao: 'executar', id: idA, envio_id: 'env-simult-a', executada_em: new Date().toISOString(), km: '1',
+    fotos: { placa: placa.d.caminho, servico: serv.d.caminho } });
+  assert.equal((await post(c.joao, { acao: 'iniciar', id: idB })).status, 200);
 });
 
 test('uma foto enviada para uma OS não serve pra fechar outra (confere dono, tipo e OS)', async () => {
