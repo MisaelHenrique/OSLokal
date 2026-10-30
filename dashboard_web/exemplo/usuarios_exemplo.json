@@ -1,0 +1,37 @@
+{
+ "aviso": "Só para o modo local. Senha de todos: lokal1234",
+ "usuarios": [
+  {
+   "email": "admin@exemplo.lokal",
+   "nome": "Administrador (teste)",
+   "perfil": "ADMIN",
+   "filial": "",
+   "senha_hash": "scrypt$16384$8$1$qj2bHwghWWoZzZ5r05C-Kg$9VPQKyzZyCRfmO4uQbkIxtu0rvbWifdE5OnTzKk1mZo",
+   "ativo": true
+  },
+  {
+   "email": "diretoria@exemplo.lokal",
+   "nome": "Diretoria (teste)",
+   "perfil": "DIRETORIA",
+   "filial": "",
+   "senha_hash": "scrypt$16384$8$1$3NOD3oObqhjcsQSxgkS8_w$BZjFyt0CqYN60v7BqFhP_o9niuHcFm3Azx1Uvkda6wI",
+   "ativo": true
+  },
+  {
+   "email": "matriz@exemplo.lokal",
+   "nome": "Pátio Matriz (teste)",
+   "perfil": "FILIAL",
+   "filial": "MATRIZ;OUTROS",
+   "senha_hash": "scrypt$16384$8$1$ArP24xiyGFhjwU3F6scCyQ$WrdnmTax6GUqc0dT-Z8l422O_DGzs6-m5s9NTyZ9d9w",
+   "ativo": true
+  },
+  {
+   "email": "luis@exemplo.lokal",
+   "nome": "Luís André (teste)",
+   "perfil": "FILIAL",
+   "filial": "LUÍS ANDRÉ",
+   "senha_hash": "scrypt$16384$8$1$u5ed2dDgRdnvYZF75bLj0A$nT3mdb5pKUdyzYVvv0lfVoFvJPkkuM4lGxMP3bxfTJ4",
+   "ativo": true
+  }
+ ]
+}

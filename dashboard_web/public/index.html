@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Frota LOKAL · Entrar</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/img/icone-180.png">
+<meta name="theme-color" content="#1d6f42">
+<link rel="stylesheet" href="/css/estilo.css">
+<script src="/js/tema.js"></script>
+</head>
+<body>
+<main class="tela-login">
+  <div class="caixa-login">
+    <div class="marca">
+      <img src="/img/logo.svg" alt="">
+      <div><b>LOKAL</b><small>Manutenção da frota · OS e dashboard</small></div>
+    </div>
+    <form id="form" novalidate>
+      <label class="campo"><span>Usuário</span>
+        <input id="usuario" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"
+          placeholder="ex.: andre@lokal" required autofocus></label>
+      <label class="campo"><span>Senha</span>
+        <input id="senha" type="password" autocomplete="current-password" required></label>
+      <div id="msg" class="mensagem erro" role="alert" hidden></div>
+      <button class="botao prim" id="entrar" type="submit">Entrar</button>
+    </form>
+    <p class="rodape-login">Esqueceu a senha ou não tem acesso? Fale com a matriz LOKAL.</p>
+    <p class="rodape-login" id="local" hidden>Modo local: dados de exemplo. Senha lokal1234 para matriz@lokal, luis@lokal, joao@lokal (mecânico), diretoria@lokal.</p>
+  </div>
+</main>
+<script type="module" src="/js/login.js"></script>
+</body>
+</html>

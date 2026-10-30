@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Frota LOKAL · Manutenção</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/css/estilo.css">
+<script src="/js/tema.js"></script>
+<script src="/vendor/chart.umd.min.js" defer></script>
+<script type="module" src="/js/painel.js"></script>
+</head>
+<body>
+<header class="topo">
+  <a class="marca" href="/painel">
+    <img src="/img/logo.svg" alt="">
+    <div><b>LOKAL</b><small>Manutenção da frota · peças e valores</small></div>
+  </a>
+  <div class="estado" id="estado"></div>
+  <div class="acoes" id="acoes"></div>
+</header>
+<div class="faixa-exemplo" id="faixa-exemplo" hidden>DADOS DE EXEMPLO · modo demonstração, não são lançamentos reais</div>
+<div class="corpo">
+  <section class="filtros" id="filtros" aria-label="Filtros" hidden></section>
+  <nav class="abas" id="abas" role="tablist" hidden></nav>
+  <main id="conteudo"><div class="carregando"><div class="giro"></div>Carregando os dados da CONSOLIDAÇÃO…</div></main>
+</div>
+</body>
+</html>

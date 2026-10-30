@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Frota LOKAL · Usuários</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="/manifest.json">
+<link rel="stylesheet" href="/css/estilo.css">
+<link rel="stylesheet" href="/css/os.css">
+<script src="/js/tema.js"></script>
+<script type="module" src="/js/usuarios.js"></script>
+</head>
+<body>
+<header class="topo">
+  <a class="marca" href="/os">
+    <img src="/img/logo.svg" alt="">
+    <div><b>LOKAL</b><small>Usuários</small></div>
+  </a>
+  <div class="estado"></div>
+  <div class="acoes"><a class="botao" href="/os">Ordens de serviço</a><a class="botao" href="/painel">Dashboard</a></div>
+</header>
+<div class="corpo">
+  <div class="grade">
+    <section class="cartao c12">
+      <div class="cartao-topo"><div><h2 id="titulo-form">Novo usuário</h2>
+        <p>O usuário é criado sozinho com o primeiro nome (andre@lokal; se já existir, andre1@lokal, andre2@lokal…). A senha inicial é <b>mudar123</b> e a pessoa troca no primeiro acesso.</p></div></div>
+      <form id="form" class="form-usuario" novalidate>
+        <label class="campo"><span>Nome completo</span><input id="nome" autocomplete="off" required></label>
+        <label class="campo"><span>Perfil</span>
+          <select id="perfil">
+            <option value="MECANICO">Mecânico (vê e fecha as OS direcionadas a ele)</option>
+            <option value="FILIAL">Filial (abre OS e vê só a sua filial)</option>
+            <option value="ADMIN">Matriz / administrador (aprova, direciona, lança valores, cuida dos usuários)</option>
+            <option value="DIRETORIA">Diretoria (consulta tudo, não altera)</option>
+          </select></label>
+        <label class="campo" id="caixa-equipe"><span>Equipe</span><input id="equipe" autocomplete="off" placeholder="ex.: Equipe itinerante"></label>
+        <div class="campo largo" id="caixa-filiais" hidden><span>Filiais que este usuário vê</span><div class="checks" id="filiais"></div></div>
+        <label class="campo" id="caixa-login" hidden><span>Usuário</span><input id="login" readonly></label>
+        <label class="campo"><span>Situação</span>
+          <select id="ativo"><option value="1">Ativo</option><option value="0">Desativado (não entra mais)</option></select></label>
+        <div class="campo"><span>&nbsp;</span><div class="checks">
+          <button class="botao prim" id="salvar" type="submit">Criar usuário</button>
+          <button class="botao" id="resetar" type="button" hidden>Voltar senha para mudar123</button>
+          <button class="botao fantasma" id="novo" type="button">Limpar</button></div></div>
+        <div id="msg" class="mensagem largo" role="status" hidden></div>
+      </form>
+    </section>
+    <section class="cartao c12">
+      <div class="cartao-topo"><div><h2>Usuários</h2><p>Clique numa linha para alterar. Para tirar o acesso, mude a situação para "Desativado".</p></div></div>
+      <div class="ferramentas"><input id="busca" type="search" placeholder="Buscar nome ou usuário" aria-label="Buscar"></div>
+      <div id="lista"><div class="carregando"><div class="giro"></div>Carregando…</div></div>
+    </section>
+  </div>
+</div>
+</body>
+</html>

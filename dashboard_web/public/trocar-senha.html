@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Frota LOKAL · Trocar senha</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="/manifest.json">
+<link rel="stylesheet" href="/css/estilo.css">
+<script src="/js/tema.js"></script>
+</head>
+<body>
+<main class="tela-login">
+  <div class="caixa-login">
+    <div class="marca">
+      <img src="/img/logo.svg" alt="">
+      <div><b>LOKAL</b><small id="quem">Trocar senha</small></div>
+    </div>
+    <p id="aviso" class="mensagem ok" hidden>Primeiro acesso: troque a senha provisória por uma só sua.</p>
+    <form id="form" novalidate>
+      <input type="text" id="login" autocomplete="username" hidden>
+      <label class="campo"><span>Senha atual</span>
+        <input id="atual" type="password" autocomplete="current-password" required></label>
+      <label class="campo"><span>Senha nova (mín. 8 caracteres)</span>
+        <input id="nova" type="password" autocomplete="new-password" required></label>
+      <label class="campo"><span>Repita a senha nova</span>
+        <input id="repete" type="password" autocomplete="new-password" required></label>
+      <div id="msg" class="mensagem erro" role="alert" hidden></div>
+      <button class="botao prim" id="salvar" type="submit">Salvar senha</button>
+    </form>
+    <p class="rodape-login"><a href="#" id="sair">Sair</a></p>
+  </div>
+</main>
+<script type="module" src="/js/trocar_senha.js"></script>
+</body>
+</html>

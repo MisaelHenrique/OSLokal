@@ -1,0 +1,14 @@
+# Segredos — nunca versionar (reforça o .gitignore de dashboard_web/)
+.env
+.env.local
+.env.*.local
+.vercel
+
+# Node
+node_modules/
+
+# Banco de teste local do sistema de OS
+dashboard_web/.dados_locais/
+
+# Sistema
+.DS_Store

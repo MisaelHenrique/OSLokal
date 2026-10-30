@@ -1,0 +1,20 @@
+{
+  "name": "lokal-dashboard-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Dashboard de manutenção e sistema de OS da frota LOKAL (HTML, CSS e JS puros + funções da Vercel + Supabase)",
+  "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "dev": "node scripts/servidor_local.js",
+    "test": "node --test",
+    "exemplo": "python scripts/gerar_exemplo.py",
+    "frota": "node scripts/sistema_os.js frota",
+    "exemplo-os": "node scripts/sistema_os.js exemplo",
+    "limpar-exemplo": "node scripts/sistema_os.js limpar",
+    "admin": "node scripts/sistema_os.js admin",
+    "veiculos": "python scripts/gerar_veiculos.py"
+  }
+}
