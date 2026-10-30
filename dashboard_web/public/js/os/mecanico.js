@@ -212,7 +212,7 @@ function telaOS(id) {
   const jaIniciada = iniciada(o);
   const pode = responsavel(o) && ['DIRECIONADA', 'EM_EXECUCAO'].includes(o.status) && !i;
   // Regra: só uma OS em execução por vez. Ajudante não conta (quem inicia/fecha é sempre o responsável).
-  const outraEmExecucao = !jaIniciada && E.lista.find((x) => x.id !== o.id && x.direcionada_para === E.u.login && x.status === 'EM_EXECUCAO');
+  const outraEmExecucao = pode && !jaIniciada && E.lista.find((x) => x.id !== o.id && x.direcionada_para === E.u.login && x.status === 'EM_EXECUCAO');
   const linha = (k, v) => (v ? [el('dt', { text: k }), el('dd', { text: v })] : []);
   const msg = el('div', { class: 'mensagem erro', hidden: true });
   const bIniciar = pode && !jaIniciada && !outraEmExecucao
@@ -231,7 +231,9 @@ function telaOS(id) {
     outraEmExecucao ? el('div', { class: 'aviso amarelo', text: 'Você já está com a ' + numeroOS(outraEmExecucao.id) +
       ' em execução. Feche-a antes de iniciar esta.' }) : null,
     msg,
-    pode ? el('div', { class: 'botoes-grandes' }, [bIniciar, el('a', { class: 'botao prim grande', href: '#fechar/' + id, text: '✓ Fechar OS' })]) : null,
+    // "Fechar OS" só depois de iniciar: não dá pra fechar um serviço que nunca começou.
+    pode && (bIniciar || jaIniciada) ? el('div', { class: 'botoes-grandes' }, [bIniciar,
+      jaIniciada ? el('a', { class: 'botao prim grande', href: '#fechar/' + id, text: '✓ Fechar OS' }) : null]) : null,
     !responsavel(o) && ['DIRECIONADA', 'EM_EXECUCAO'].includes(o.status) ? el('p', { class: 'dica', text: 'Você é ajudante nesta OS. Quem fecha é o responsável.' }) : null);
 }
 
@@ -262,7 +264,7 @@ function voltar() {
 
 function telaFechar(id) {
   const o = E.lista.find((x) => x.id === id);
-  if (!o || !responsavel(o) || naFila(id) || !['DIRECIONADA', 'EM_EXECUCAO'].includes(o.status)) { location.hash = 'os/' + id; return; }
+  if (!o || !responsavel(o) || naFila(id) || !['DIRECIONADA', 'EM_EXECUCAO'].includes(o.status) || !iniciada(o)) { location.hash = 'os/' + id; return; }
   const ult = E.leituras[o.chassi] || {};
   const km = el('input', { inputmode: 'numeric', placeholder: ult.km !== undefined ? 'último: ' + fmt.int(ult.km) : 'ex.: 120500', autocomplete: 'off' });
   const hor = el('input', { inputmode: 'decimal', placeholder: ult.horimetro !== undefined ? 'último: ' + fmt.dec(ult.horimetro) : 'ex.: 4520', autocomplete: 'off' });

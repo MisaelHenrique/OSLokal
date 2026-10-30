@@ -77,7 +77,8 @@ export function acoesPossiveis(u, os) {
     if (s === 'DEVOLVIDA') a.push('reenviar');
     if (['AGUARDANDO_APROVACAO', 'DEVOLVIDA'].includes(s)) a.push('cancelar');
   } else if (u.perfil === 'MECANICO' && ehResponsavel(u, os)) {
-    if (s === 'DIRECIONADA') a.push('iniciar', 'executar');
+    // Fechar exige ter iniciado antes — não dá pra fechar um serviço que nunca começou.
+    if (s === 'DIRECIONADA') a.push('iniciar');
     if (s === 'EM_EXECUCAO') a.push('executar');
   }
   return a;

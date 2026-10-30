@@ -92,7 +92,7 @@ test('mecânico vê a OS (responsável e ajudante); só o responsável fecha', a
   const l = await chamar(os, { cookie: c.joao });
   const minha = l.d.os.find((o) => o.id === id);
   assert.ok(minha);
-  assert.deepEqual(minha.acoes, ['iniciar', 'executar']);
+  assert.deepEqual(minha.acoes, ['iniciar']); // direcionada, ainda não iniciada: só pode iniciar, não fechar direto
   assert.ok(l.d.os.every((o) => o.direcionada_para === 'joao@lokal' || o.ajudantes.includes('joao@lokal')));
   assert.equal(l.d.nomes, undefined, 'mecânico não recebe a lista de usuários');
   const p = await chamar(os, { cookie: c.pedro, url: '/api/os?id=' + id });
@@ -206,6 +206,11 @@ test('mecânico não inicia uma segunda OS enquanto a primeira está em execuç�
   await post(c.joao, { acao: 'executar', id: idA, envio_id: 'env-simult-a', executada_em: new Date().toISOString(), km: '1',
     fotos: { placa: placa.d.caminho, servico: serv.d.caminho } });
   assert.equal((await post(c.joao, { acao: 'iniciar', id: idB })).status, 200);
+  // fecha a B também, pra não deixar o joao@lokal preso pro próximo teste
+  const placaB = await foto(c.joao, `/api/fotos?tipo=placa&os=${idB}&envio=env-simult-b`);
+  const servB = await foto(c.joao, `/api/fotos?tipo=servico&os=${idB}&envio=env-simult-b`);
+  await post(c.joao, { acao: 'executar', id: idB, envio_id: 'env-simult-b', executada_em: new Date().toISOString(), km: '1',
+    fotos: { placa: placaB.d.caminho, servico: servB.d.caminho } });
 });
 
 test('uma foto enviada para uma OS não serve pra fechar outra (confere dono, tipo e OS)', async () => {
@@ -214,6 +219,7 @@ test('uma foto enviada para uma OS não serve pra fechar outra (confere dono, ti
   const b = await post(c.matriz, { acao: 'abrir', chassi: veiculoLuis.chassi, tipo: 'SERVICO', grupo: 'FRE', servico: 'Revisão B',
     local_servico: 'Pátio', mecanico: 'joao@lokal' });
   const idA = a.d.os.id, idB = b.d.os.id;
+  await post(c.joao, { acao: 'iniciar', id: idB }); // fechar exige ter iniciado
   const placaA = await foto(c.joao, `/api/fotos?tipo=placa&os=${idA}&envio=env-cruzado-1`);
   const servA = await foto(c.joao, `/api/fotos?tipo=servico&os=${idA}&envio=env-cruzado-1`);
   assert.equal(placaA.status, 200, JSON.stringify(placaA.d));
