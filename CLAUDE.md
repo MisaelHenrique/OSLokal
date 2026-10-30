@@ -12,6 +12,8 @@ apagado do projeto. Não existe mais fora de `dashboard_web/`.
 - Nunca inventar valores reais. Sem lançamentos, usar exemplos sinalizados e marcar os KPIs dependentes como
   "aguardando dados".
 - Dado insuficiente ou inconsistente: destacar e dizer exatamente qual dado falta.
+- Commits a partir de 2026-10-30 seguem **Conventional Commits** (`feat:`, `fix:`, `docs:`, `chore:`, `test:`,
+  `refactor:`...). O commit inicial (antes desse pedido) não segue.
 - Pasta sem git — qualquer exclusão é definitiva. Confirmar com o Misael antes de apagar algo grande.
 
 ## Escopo
