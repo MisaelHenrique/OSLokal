@@ -2,7 +2,7 @@
 // fechamentos quando o sinal volta (Background Sync, no Android). Ao mudar arquivos desta lista, suba a VERSAO.
 importScripts('/js/os/fila.js');
 
-const VERSAO = 'lokal-os-v1';
+const VERSAO = 'lokal-os-v4';   // v4: posição (eixo + lado) nas peças, últimas manutenções do veículo
 const ARQUIVOS = [
   '/os', '/os/mecanico', '/manifest.json', '/css/estilo.css', '/css/os.css', '/js/tema.js', '/js/ui.js', '/js/api.js',
   '/js/sistema.js', '/js/os/inicio.js', '/js/os/regras.js', '/js/os/comum.js', '/js/os/fila.js', '/js/os/mecanico.js',

@@ -65,6 +65,20 @@ export function botaoTema(aoTrocar) {
   return b;
 }
 
+/** Botão de mostrar/ocultar senha, dentro de um `.campo-senha` (input + este botão). */
+export function ativarMostrarSenha(idInput, idBotao) {
+  const input = document.getElementById(idInput), botao = document.getElementById(idBotao);
+  if (!input || !botao) return;
+  botao.addEventListener('click', () => {
+    const mostrando = input.type === 'text';
+    input.type = mostrando ? 'password' : 'text';
+    botao.textContent = mostrando ? '👁' : '🙈';
+    const rotulo = mostrando ? 'Mostrar senha' : 'Ocultar senha';
+    botao.setAttribute('aria-label', rotulo);
+    botao.title = rotulo;
+  });
+}
+
 export function baixar(nome, conteudo, tipo = 'text/csv;charset=utf-8') {
   const url = URL.createObjectURL(new Blob([conteudo], { type: tipo }));
   const a = el('a', { href: url, download: nome });

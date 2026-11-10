@@ -83,6 +83,13 @@ button, input, select { font: inherit; color: inherit; }
   border: 1px solid var(--linha-forte); border-radius: 6px; padding: 7px 9px; background: var(--cartao); min-height: 36px;
   width: 100%;
 }
+.campo-senha { position: relative; }
+.campo-senha input { padding-right: 38px; }
+.botao-olho {
+  position: absolute; right: 2px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer;
+  font-size: 15px; line-height: 1; padding: 7px; color: var(--tinta2); border-radius: 6px;
+}
+.botao-olho:hover { background: var(--cartao2); }
 
 /* ── topo ── */
 .topo {
@@ -182,6 +189,7 @@ tr.detalhe table { font-size: 12px; }
 .etiqueta { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 9px; background: var(--cartao2); color: var(--tinta2); border: 1px solid var(--linha); white-space: nowrap; }
 .ferramentas { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
 .ferramentas input { max-width: 320px; width: 100%; border: 1px solid var(--linha-forte); border-radius: 6px; padding: 7px 9px; background: var(--cartao); min-height: 36px; }
+.ferramentas select { color: inherit; border: 1px solid var(--linha-forte); border-radius: 6px; padding: 7px 9px; background: var(--cartao); min-height: 36px; }
 .paginacao { display: flex; gap: 8px; align-items: center; justify-content: flex-end; margin-top: 10px; color: var(--tinta2); font-size: 12px; }
 .trilha { display: flex; gap: 6px; align-items: center; margin-bottom: 10px; color: var(--tinta2); font-size: 13px; flex-wrap: wrap; }
 

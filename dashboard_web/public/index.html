@@ -23,7 +23,10 @@
         <input id="usuario" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"
           placeholder="ex.: andre@lokal" required autofocus></label>
       <label class="campo"><span>Senha</span>
-        <input id="senha" type="password" autocomplete="current-password" required></label>
+        <div class="campo-senha">
+          <input id="senha" type="password" autocomplete="current-password" required>
+          <button type="button" class="botao-olho" id="olho-senha" aria-label="Mostrar senha" title="Mostrar senha">👁</button>
+        </div></label>
       <div id="msg" class="mensagem erro" role="alert" hidden></div>
       <button class="botao prim" id="entrar" type="submit">Entrar</button>
     </form>

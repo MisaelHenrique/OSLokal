@@ -1,4 +1,4 @@
-// GET /api/veiculos → cadastro central, recortado: filial vê só os seus veículos.
+// GET /api/veiculos → cadastro central, recortado: filial vê só os seus veículos (mecânico lança pra qualquer um).
 import { json, metodo } from './_lib/http.js';
 import { exigir } from './_lib/acesso.js';
 import { banco } from './_lib/banco.js';
@@ -9,7 +9,7 @@ const CAMPOS = ['chassi', 'frota', 'placa', 'tipo', 'modelo', 'ano', 'empresa', 
 export default async function handler(req, res) {
   if (!metodo(req, res, ['GET'])) return;
   try {
-    const u = await exigir(req, res, { perfis: ['ADMIN', 'DIRETORIA', 'FILIAL'] });
+    const u = await exigir(req, res, { perfis: ['ADMIN', 'DIRETORIA', 'FILIAL', 'MECANICO'] });
     if (!u) return;
     const minhas = new Set(filiaisDe(u));
     const todos = await banco.listar('veiculos', { eq: { ativo: true }, ordem: 'placa.asc' });

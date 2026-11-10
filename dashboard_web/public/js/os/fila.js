@@ -1,6 +1,6 @@
-// Fila de fechamentos feitos SEM internet. Script comum (não módulo) para rodar igual na página do mecânico e no
+// Fila de lançamentos feitos SEM internet. Script comum (não módulo) para rodar igual na página do mecânico e no
 // service worker (sw.js), que envia a fila sozinho quando o sinal volta, mesmo com o app fechado (Android/Chrome).
-// Tudo fica no IndexedDB do celular: o fechamento e as fotos só saem dali depois que o servidor confirma.
+// Tudo fica no IndexedDB do celular: o lançamento e as fotos só saem dali depois que o servidor confirma.
 (function (escopo) {
   const BANCO = 'lokal_os', VERSAO = 1;
   let conexao = null, rodando = null;
@@ -62,18 +62,24 @@
   async function enviarItem(item) {
     try {
       item.caminhos = item.caminhos || {};
-      for (const [tipo, blob] of Object.entries(item.fotos || {})) {
-        if (!blob || item.caminhos[tipo]) continue;
-        const q = new URLSearchParams({ tipo, os: item.os_id, envio: item.id });
+      const defeito = item.fotos.defeito || [];
+      const subidas = [['frente', item.fotos.frente, ''], ['painel', item.fotos.painel, '']]
+        .concat(defeito.map((blob, i) => ['defeito', blob, String(i + 1)]));
+      for (const [tipo, blob, n] of subidas) {
+        const chave = tipo + n;
+        if (!blob || item.caminhos[chave]) continue;
+        const q = new URLSearchParams({ tipo, envio: item.id, ...(n ? { n } : {}) });
         const r = await fetch('/api/fotos?' + q, { method: 'POST', credentials: 'same-origin',
           headers: { 'Content-Type': blob.type || 'image/jpeg', 'X-Lokal': '1' }, body: blob });
         const fim = await tratar(r, item);
         if (fim) return fim;
-        item.caminhos[tipo] = (await r.json()).caminho;
+        item.caminhos[chave] = (await r.json()).caminho;
         await Fila.atualizar(item);
       }
+      const fotos_defeito = defeito.map((_, i) => item.caminhos['defeito' + (i + 1)]);
       const r = await fetch('/api/os', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...item.dados, acao: 'executar', id: item.os_id, envio_id: item.id, fotos: item.caminhos }) });
+        body: JSON.stringify({ ...item.dados, acao: 'lancar', envio_id: item.id,
+          fotos: { frente: item.caminhos.frente, painel: item.caminhos.painel }, fotos_defeito }) });
       const fim = await tratar(r, item);
       if (fim) return fim;
       await Fila.remover(item.id);

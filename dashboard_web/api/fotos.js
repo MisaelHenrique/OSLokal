@@ -1,12 +1,15 @@
 // Fotos e nota fiscal das OS, guardadas no Storage do Supabase (bucket privado). O navegador nunca fala com o
 // Supabase: envia e lê por aqui, e cada pedido confere se a pessoa pode ver aquela OS.
-// POST /api/fotos?tipo=placa&os=12&envio=<id>   corpo = a imagem (image/jpeg, png, webp; nf também PDF)
-// POST /api/fotos?tipo=problema&envio=<id>&n=1  foto do problema, antes de abrir a OS
-// GET  /api/fotos?caminho=os/12/placa-<id>.jpg
+// A OS nasce já com o lançamento inteiro: fotos de frente/painel/defeito são enviadas ANTES da OS existir
+// (como a nota fiscal é anexada depois, essa é a única que exige uma OS já lançada).
+// POST /api/fotos?tipo=frente|painel&envio=<id>
+// POST /api/fotos?tipo=defeito&envio=<id>&n=1
+// POST /api/fotos?tipo=nf&os=12&envio=<id>
+// GET  /api/fotos?caminho=novas/<login>/<envio>-frente.jpg
 import { json, metodo, lerBinario } from './_lib/http.js';
 import { exigir } from './_lib/acesso.js';
 import { banco } from './_lib/banco.js';
-import { podeVer, ehResponsavel, podeAbrir, TIPOS_FOTO, FOTOS_FECHAMENTO } from '../public/js/os/regras.js';
+import { podeVer, podeLancar, podeSolicitar, TIPOS_FOTO } from '../public/js/os/regras.js';
 
 const MAX = 4 * 1024 * 1024;   // a Vercel aceita até 4,5 MB por pedido; o celular reduz a foto antes (~300 KB)
 const EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'application/pdf': 'pdf' };
@@ -27,23 +30,17 @@ async function enviar(u, req, res) {
   if (!EXT[conteudo] || (conteudo === 'application/pdf' && tipo !== 'nf')) return json(res, 415, { erro: 'Envie uma foto (JPG, PNG) ou PDF.' });
 
   let caminho, os_id = null;
-  if (tipo === 'problema') {
-    if (!podeAbrir(u)) return json(res, 403, { erro: 'Seu perfil não abre OS.' });
-    const n = Math.min(9, Math.max(1, Number(q.get('n')) || 1));
-    caminho = `novas/${u.login.replace(/[^a-z0-9]/g, '_')}/${envio}-${n}.${EXT[conteudo]}`;
-  } else {
+  if (tipo === 'nf') {
     const os = await osDe(q.get('os'));
     if (!os || !podeVer(u, os)) return json(res, 404, { erro: 'OS não encontrada.' });
-    if (FOTOS_FECHAMENTO.includes(tipo)) {
-      const repetido = os.status === 'EXECUTADA' && os.envio_id === envio;
-      if (!ehResponsavel(u, os) || !(['DIRECIONADA', 'EM_EXECUCAO'].includes(os.status) || repetido)) {
-        return json(res, 409, { erro: 'Esta OS não está mais com você. Fale com a matriz.' });
-      }
-    } else if (tipo === 'nf') {
-      if (u.perfil !== 'ADMIN' || !['EXECUTADA', 'FECHADA'].includes(os.status)) return json(res, 403, { erro: 'Só a matriz anexa a nota.' });
-    }
+    if (!['ADMIN', 'FILIAL'].includes(u.perfil) || os.status !== 'FEITA') return json(res, 403, { erro: 'Só a matriz ou a filial anexam a nota.' });
     os_id = os.id;
-    caminho = `os/${os.id}/${tipo}-${envio}.${EXT[conteudo]}`;
+    caminho = `os/${os.id}/nf-${envio}.${EXT[conteudo]}`;
+  } else {
+    // frente, painel, defeito: a OS ainda não existe, nasce já com o lançamento inteiro (como antes era a foto do problema)
+    if (!podeLancar(u) && !podeSolicitar(u)) return json(res, 403, { erro: 'Seu perfil não lança OS.' });
+    const n = tipo === 'defeito' ? Math.min(3, Math.max(1, Number(q.get('n')) || 1)) : '';
+    caminho = `novas/${u.login.replace(/[^a-z0-9]/g, '_')}/${envio}-${tipo}${n}.${EXT[conteudo]}`;
   }
   const corpo = await lerBinario(req, MAX);
   if (!corpo.length) return json(res, 400, { erro: 'Arquivo vazio.' });
@@ -60,8 +57,7 @@ async function ler(u, req, res) {
   let pode = a.enviado_por === u.login;
   if (!pode && a.os_id) {
     const os = await osDe(a.os_id);
-    pode = !!os && podeVer(u, os) &&
-      (a.tipo !== 'nf' || u.perfil === 'ADMIN' || u.perfil === 'DIRETORIA' || (u.perfil === 'FILIAL' && os.status === 'FECHADA'));
+    pode = !!os && podeVer(u, os) && (a.tipo !== 'nf' || u.perfil !== 'MECANICO');
   }
   if (!pode) return json(res, 404, { erro: 'Arquivo não encontrado.' });
   const arq = await banco.lerArquivo(caminho);

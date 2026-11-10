@@ -8,8 +8,9 @@ Sistema de ordens de serviço (OS) de manutenção da frota pesada da LOKAL, com
 
 ## O que tem
 
-- **Sistema de OS** (`/os`, `/os/mecanico`) — filial abre a OS, matriz aprova e direciona, mecânico executa (**funciona
-  sem internet**, PWA) e fecha com fotos e km/horímetro, matriz lança valores e fecha. Dados no Supabase.
+- **Sistema de OS** (`/os`, `/os/mecanico`) — a OS é um registro de serviço já feito: mecânico (**funciona sem
+  internet**, PWA), filial ou matriz lançam, com fotos e km/horímetro; filial pode só solicitar equipe itinerante;
+  valores e NF são opcionais, lançados por filial/matriz a qualquer momento. Dados no Supabase.
 - **`/painel`** — indicadores de manutenção. Hoje sem fonte de dado real (a antiga planilha Google foi removida em
   30/10/2026); mostra só o modo de exemplo até ser religado ao Supabase.
 

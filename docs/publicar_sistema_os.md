@@ -6,6 +6,12 @@ login. Os dados e as fotos ficam no **Supabase** (plano gratuito serve para come
 > **Importante:** a partir desta versão os logins (inclusive os da dashboard) moram no Supabase, não mais na aba
 > USUARIOS. Faça os passos 1 a 4 **antes** do `vercel --prod`, senão ninguém consegue entrar.
 
+> **Projeto Supabase já existente, criado antes de 09/11/2026?** O fluxo mudou (ver
+> `../PLANO_OS_SIMPLIFICADA.md` e `ATUALIZACAO_SISTEMA_OS.md`). Primeiro rode, no SQL Editor do Supabase, o
+> conteúdo de `dashboard_web/banco/atualizar_simplificado.sql` (uma vez só) — o `limpar-exemplo` novo já lê a
+> coluna `os_atendida`, que só existe depois desse script. Só então rode `npm run limpar-exemplo` e
+> `npm run exemplo-os`.
+
 ## 1. Criar o projeto no Supabase
 
 1. Entre em <https://supabase.com> e crie uma conta (pode ser com o Google da empresa).
@@ -46,7 +52,7 @@ No terminal do VS Code, dentro de `dashboard_web`:
 
 ```bash
 npm run frota                       # 407 veículos do cadastro
-npm run exemplo-os                  # demonstração: 19 usuários (12 mecânicos) e 33 OS, senha lokal1234
+npm run exemplo-os                  # demonstração: 19 usuários (12 mecânicos) e 35 OS, senha lokal1234
 npm run admin -- "Misael Henrique"  # seu administrador: misael@lokal / mudar123 (troca no 1º acesso)
 ```
 
@@ -72,9 +78,9 @@ Abra o endereço da Vercel, entre com `matriz@lokal`, e confira: botão **Sistem
 No celular, abra o endereço, entre e toque no menu do seu nome > **Instalar no celular**. Android (Chrome): botão
 "Instalar". iPhone (Safari): Compartilhar > "Adicionar à Tela de Início". O mecânico entra e já cai na lista dele.
 
-Teste do modo sem internet: com a OS aberta no celular do mecânico, ative o modo avião, toque em Iniciar, preencha
-km, fotos e Fechar OS. A tela mostra "1 fechamento aguardando envio". Desligue o modo avião: em alguns segundos
-some o aviso e a OS aparece como Executada para a matriz.
+Teste do modo sem internet: no celular do mecânico, ative o modo avião, toque em "+ Lançar OS realizada", preencha
+tudo e envie. A tela mostra "1 OS aguardando envio". Desligue o modo avião: em alguns segundos some o aviso e a OS
+aparece como enviada, tanto para o mecânico quanto para a matriz.
 
 ## 7. Antes de entregar ao cliente
 

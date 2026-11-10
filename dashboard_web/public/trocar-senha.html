@@ -20,11 +20,20 @@
     <form id="form" novalidate>
       <input type="text" id="login" autocomplete="username" hidden>
       <label class="campo"><span>Senha atual</span>
-        <input id="atual" type="password" autocomplete="current-password" required></label>
+        <div class="campo-senha">
+          <input id="atual" type="password" autocomplete="current-password" required>
+          <button type="button" class="botao-olho" id="olho-atual" aria-label="Mostrar senha" title="Mostrar senha">👁</button>
+        </div></label>
       <label class="campo"><span>Senha nova (mín. 8 caracteres)</span>
-        <input id="nova" type="password" autocomplete="new-password" required></label>
+        <div class="campo-senha">
+          <input id="nova" type="password" autocomplete="new-password" required>
+          <button type="button" class="botao-olho" id="olho-nova" aria-label="Mostrar senha" title="Mostrar senha">👁</button>
+        </div></label>
       <label class="campo"><span>Repita a senha nova</span>
-        <input id="repete" type="password" autocomplete="new-password" required></label>
+        <div class="campo-senha">
+          <input id="repete" type="password" autocomplete="new-password" required>
+          <button type="button" class="botao-olho" id="olho-repete" aria-label="Mostrar senha" title="Mostrar senha">👁</button>
+        </div></label>
       <div id="msg" class="mensagem erro" role="alert" hidden></div>
       <button class="botao prim" id="salvar" type="submit">Salvar senha</button>
     </form>

@@ -44,11 +44,13 @@ async function exemplo() {
   const usuarios = usuariosExemplo(existentes);
   await banco.inserir('usuarios', usuarios);
   const { os, os_eventos } = osExemplo(veiculos, usuarios);
-  // o banco numera as OS; os eventos são religados ao número novo
+  // o banco numera as OS; os eventos e o os_atendida (solicitação respondida) são religados ao número novo.
+  // As solicitações vêm antes das respostas na lista (osExemplo gera nessa ordem), então `novos` já tem o id
+  // real da solicitação no momento de inserir a OS que a responde.
   const novos = {};
   for (const o of os) {
-    const { id, ...resto } = o;
-    const [salva] = await banco.inserir('os', resto);
+    const { id, os_atendida, ...resto } = o;
+    const [salva] = await banco.inserir('os', { ...resto, os_atendida: os_atendida != null ? (novos[os_atendida] ?? null) : null });
     novos[id] = salva.id;
   }
   await em_lotes(os_eventos.map(({ id, ...e }) => ({ ...e, os_id: novos[e.os_id] })), 300, (l) => banco.inserir('os_eventos', l));
@@ -60,7 +62,7 @@ async function limpar() {
   const arquivos = await banco.listar('arquivos', { eq: { exemplo: true } });
   await banco.apagarArquivos(arquivos.map((a) => a.caminho));
   await banco.apagar('arquivos', { eq: { exemplo: true } });
-  await banco.atualizar('os', { eq: { exemplo: true } }, { os_origem: null, os_servico: null });
+  await banco.atualizar('os', { eq: { exemplo: true } }, { os_atendida: null });
   const os = await banco.apagar('os', { eq: { exemplo: true } });
   const usuarios = await banco.apagar('usuarios', { eq: { exemplo: true } });
   console.log(`Apagados: ${os.length} OS, ${usuarios.length} usuários e ${arquivos.length} arquivos de exemplo. Veículos e usuários reais ficaram.`);

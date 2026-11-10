@@ -1,6 +1,10 @@
 import { api, inicioDoPerfil } from './api.js';
+import { ativarMostrarSenha } from './ui.js';
 
 const $ = (id) => document.getElementById(id);
+ativarMostrarSenha('atual', 'olho-atual');
+ativarMostrarSenha('nova', 'olho-nova');
+ativarMostrarSenha('repete', 'olho-repete');
 let eu = null;
 
 api.sessao().then(({ usuario }) => {

@@ -14,18 +14,14 @@ textarea {
   font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 10px; white-space: nowrap;
   background: var(--cartao2); color: var(--tinta2); border: 1px solid var(--linha);
 }
-.s-aguardando_aprovacao, .s-devolvida { background: var(--aviso-fundo); color: var(--aviso); border-color: transparent; }
-.s-aprovada { background: var(--cartao2); color: var(--tinta); }
-.s-direcionada, .s-em_execucao { background: color-mix(in srgb, var(--s1) 14%, transparent); color: var(--tinta); border-color: color-mix(in srgb, var(--s1) 40%, transparent); }
-.s-executada { background: color-mix(in srgb, var(--s6) 14%, transparent); color: var(--tinta); border-color: color-mix(in srgb, var(--s6) 40%, transparent); }
-.s-fechada { background: var(--marca-suave); color: var(--tinta); border-color: transparent; }
+.s-solicitada { background: var(--aviso-fundo); color: var(--aviso); border-color: transparent; }
+.s-feita { background: var(--marca-suave); color: var(--tinta); border-color: transparent; }
 .s-cancelada { text-decoration: line-through; }
-.s-parado { background: var(--erro-fundo); color: var(--erro); border-color: transparent; }
 .tipo { color: var(--tinta2); font-size: 12.5px; font-weight: 600; }
-.contagem { font-size: 11px; font-weight: 700; background: var(--cartao2); border: 1px solid var(--linha); border-radius: 9px; padding: 0 6px; color: var(--tinta2); }
 
-.numero.alerta .valor { color: var(--erro); }
-.os-numeros { margin-top: 4px; }
+/* tela inicial: Nova OS + Todas as OS lado a lado, descoladas dos cartões de baixo */
+.inicio { display: flex; flex-direction: column; gap: 16px; }
+.inicio-acoes { display: flex; gap: 10px; flex-wrap: wrap; }
 
 /* lista de OS (matriz e filial) */
 .lista-os { display: grid; gap: 8px; }
@@ -35,7 +31,6 @@ textarea {
   padding: 10px 12px; color: var(--tinta); text-decoration: none; box-shadow: var(--sombra);
 }
 .linha-os:hover { background: var(--cartao2); }
-.linha-os.parado { border-left-color: var(--erro); }
 .linha-os > div { min-width: 0; }
 .linha-os .l1 { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .linha-os .l2 { display: flex; flex-direction: column; }
@@ -44,6 +39,21 @@ textarea {
 .linha-os .l4 { display: flex; flex-direction: column; }
 .placa { font-size: 15px; letter-spacing: .02em; }
 .grupo-local h3 { font-size: 14px; margin: 18px 0 8px; display: flex; gap: 8px; align-items: center; }
+
+/* histórico do veículo, no modelo da planilha do cliente */
+.tabela-hist { width: 100%; border-collapse: collapse; margin-top: 10px; }
+.tabela-hist th { text-align: left; font-size: 12px; font-weight: 600; color: var(--tinta2); padding: 6px 10px; border-bottom: 1px solid var(--linha-forte); white-space: nowrap; }
+.tabela-hist td { padding: 8px 10px; border-bottom: 1px solid var(--linha); font-size: 13.5px; }
+.tabela-hist tbody tr { cursor: pointer; }
+.tabela-hist tbody tr:hover { background: var(--cartao2); }
+.tabela-hist tr.cancelada td { text-decoration: line-through; color: var(--tinta2); }
+@media (max-width: 760px) {
+  .tabela-hist thead { display: none; }
+  .tabela-hist, .tabela-hist tbody, .tabela-hist tr, .tabela-hist td { display: block; width: 100%; }
+  .tabela-hist tr { border: 1px solid var(--linha); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; background: var(--cartao); }
+  .tabela-hist td { border: none; padding: 3px 0; display: flex; justify-content: space-between; gap: 10px; }
+  .tabela-hist td::before { content: attr(data-rotulo); color: var(--tinta2); font-size: 12px; font-weight: 600; }
+}
 
 /* formulários */
 .form-os { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
@@ -69,13 +79,63 @@ textarea {
 .equipe select { border: 1px solid var(--linha-forte); border-radius: 6px; padding: 7px 9px; background: var(--cartao); min-height: 38px; }
 .ajudantes summary { cursor: pointer; color: var(--tinta2); font-size: 13px; }
 .ajudantes .checks { margin-top: 8px; }
+
+/* checkboxes de auxiliares: colunas alinhadas, 3 por coluna no desktop, 6 no celular; rola de lado se passar disso */
+.auxiliares-grid {
+  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(150px, max-content);
+  grid-template-rows: repeat(3, auto); gap: 8px 20px; overflow-x: auto; padding-bottom: 6px;
+}
+.auxiliares-grid label { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; }
+.auxiliares-grid input { width: 18px; height: 18px; min-height: 0; margin-top: 2px; flex: none; }
+@media (max-width: 640px) {
+  .auxiliares-grid { grid-template-rows: repeat(6, auto); }
+}
 .total { font-weight: 700; font-size: 15px; margin: 4px 0 10px; }
+
+/* peças por grupo (pode ter vários) + semáforo de garantia, 50/50 lado a lado */
+.pecas-semaforo { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+.blocos-grupo { display: grid; gap: 10px; margin-bottom: 8px; }
+.bloco-grupo { border: 1px solid var(--linha); border-radius: 8px; padding: 10px; background: var(--cartao2); }
+.bloco-grupo-topo { display: flex; gap: 8px; align-items: flex-end; }
+.bloco-grupo-topo .campo { flex: 1; margin-bottom: 0; }
+.pecas-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px 14px; margin-top: 8px; }
+.peca-linha label { display: flex; align-items: flex-start; gap: 6px; font-size: 13px; }
+.peca-linha input { width: 16px; height: 16px; min-height: 0; margin-top: 2px; flex: none; }
+/* peça com eixo/lado: ocupa a linha toda pra caber os dois selects sem espremer */
+.peca-linha:has(.peca-posicao:not([hidden])) { grid-column: 1 / -1; }
+.peca-posicao { display: flex; gap: 8px; margin: 6px 0 2px 22px; }
+.peca-posicao select {
+  font: inherit; color: inherit; border: 1px solid var(--linha-forte); border-radius: 6px; padding: 5px 8px;
+  background: var(--cartao); font-size: 12.5px; min-height: 0;
+}
+.semaforo { border-radius: 8px; padding: 12px 14px; border: 1px solid var(--linha-forte); align-self: start; }
+.semaforo b { display: block; font-size: 14px; margin-bottom: 4px; }
+.semaforo p { margin: 0 0 4px; font-size: 13px; }
+.semaforo small { opacity: .8; }
+.semaforo-vermelho { background: var(--erro-fundo); border-color: var(--erro); color: var(--erro); }
+.semaforo-amarelo { background: var(--aviso-fundo); border-color: var(--aviso); color: var(--aviso); }
+.semaforo-verde { background: var(--marca-suave); border-color: var(--ok); color: var(--ok); }
+
+/* mini-lista "últimas manutenções" no card do veículo (detalhe da OS) */
+.manutencoes-recentes { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--linha); }
+.manutencoes-recentes h3 { font-size: 13px; color: var(--tinta2); margin: 0 0 8px; }
+.manutencao-recente { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--linha); }
+.manutencao-recente:last-child { border-bottom: none; }
+.manutencao-recente-texto { display: flex; flex-direction: column; gap: 1px; color: var(--tinta); text-decoration: none; min-width: 0; }
+a.manutencao-recente-texto:hover b { text-decoration: underline; }
+.manutencao-recente-texto b { font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.manutencao-recente-texto span { font-size: 12px; color: var(--tinta2); }
+.selo-semaforo { font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 10px; white-space: nowrap; flex: none; }
+.selo-vermelho { background: var(--erro-fundo); color: var(--erro); }
+.selo-amarelo { background: var(--aviso-fundo); color: var(--aviso); }
+.selo-verde { background: var(--marca-suave); color: var(--ok); }
 
 /* fotos */
 .fotos { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
 .campo-foto .foto-botao { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; white-space: normal; text-align: left; }
 .campo-foto .foto-botao span { display: flex; flex-direction: column; font-weight: 400; }
 .campo-foto .foto-botao small { color: var(--apagado); }
+.link-galeria { background: none; border: none; color: var(--tinta2); font-size: 12px; text-decoration: underline; padding: 2px 0; cursor: pointer; }
 .mini-foto {
   width: 56px; height: 56px; border-radius: 6px; flex: none; background: var(--cartao2) center / cover no-repeat;
   display: grid; place-items: center; font-size: 22px; border: 1px solid var(--linha);
@@ -84,6 +144,18 @@ textarea {
 .foto-guardada { display: flex; flex-direction: column; gap: 4px; text-decoration: none; color: var(--tinta2); font-size: 12px; width: 112px; }
 .foto-guardada img, .foto-guardada .mini-foto { width: 112px; height: 112px; object-fit: cover; border-radius: 8px; border: 1px solid var(--linha); }
 .fotos .campo-foto { flex: 1 1 220px; }
+
+/* visor de foto em tela cheia, dentro do app */
+.foto-overlay {
+  position: fixed; inset: 0; z-index: 100; background: rgba(0, 0, 0, .92);
+  display: flex; align-items: center; justify-content: center; padding: 56px 16px 16px;
+}
+.foto-overlay img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 6px; }
+.foto-overlay-fechar {
+  position: absolute; top: max(12px, env(safe-area-inset-top)); left: 12px; z-index: 1;
+  background: var(--cartao); color: var(--tinta); border: 1px solid var(--linha-forte); border-radius: 8px;
+  padding: 9px 16px; font-weight: 600; font-size: 14px; cursor: pointer;
+}
 
 /* detalhe */
 .cabeca-os { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 4px 0 10px; }
@@ -118,7 +190,6 @@ h2.titulo-mec { font-size: 15px; color: var(--tinta2); }
   display: grid; gap: 4px; background: var(--cartao); border: 1px solid var(--linha); border-left: 5px solid var(--s1);
   border-radius: 10px; padding: 12px 14px; color: var(--tinta); text-decoration: none; box-shadow: var(--sombra);
 }
-.cartao-mec.parado { border-left-color: var(--erro); }
 .cartao-mec.guardado { border-left-color: var(--aviso); }
 .cartao-mec.erro { border-left-color: var(--erro); background: var(--erro-fundo); }
 .cartao-mec .l1 { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
@@ -142,7 +213,7 @@ body.mecanico .botao.grande { min-height: 52px; font-size: 16px; }
   .grade-os { grid-template-columns: 1fr; }
 }
 @media (max-width: 640px) {
-  .form-os, .duas, .opcoes-grandes, .tres { grid-template-columns: 1fr; }
+  .form-os, .duas, .opcoes-grandes, .tres, .pecas-semaforo { grid-template-columns: 1fr; }
   .form-mec .duas { grid-template-columns: 1fr 1fr; }
   .fotos-mec { grid-template-columns: 1fr; }
   .os-numeros { grid-template-columns: repeat(2, minmax(0, 1fr)); }

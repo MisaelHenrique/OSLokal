@@ -1,5 +1,7 @@
 import { api, inicioDoPerfil } from './api.js';
-import { guardar } from './ui.js';
+import { guardar, ativarMostrarSenha } from './ui.js';
+
+ativarMostrarSenha('senha', 'olho-senha');
 
 const $ = (id) => document.getElementById(id);
 const voltar = () => {

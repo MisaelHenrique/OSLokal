@@ -29,17 +29,20 @@ Atualizado em 2026-10-22.
 | Pneus | Dentro da fase 1 (aba Pneus) |
 | Gasto | Soma de `custo_total` dos ITENS (peças + mão de obra). Não usa `valor_nf` |
 
-## Sistema de OS (30/10)
+## Sistema de OS (simplificado em 09/11/2026 — ver `../PLANO_OS_SIMPLIFICADA.md`)
 
-Etapas: Aguardando aprovação → Aprovada → Direcionada → Em execução → Executada → Fechada (+ Devolvida, Cancelada).
-Filial abre e vai para a matriz; matriz abre já aprovada. Tipos: DIAGNÓSTICO (defeito desconhecido; fecha como
-"resolvido" ou "precisa de serviço", e a matriz gera a OS de serviço ligada) e SERVIÇO. Um mecânico responsável +
-ajudantes opcionais. Fechamento: km e/ou horímetro (obrigatório um dos dois), foto da placa e do serviço
-(obrigatórias), fotos do painel e do horímetro (opcionais). Offline: fila em IndexedDB (`js/os/fila.js`), envio no
-evento online, pelo service worker (Background Sync) e ao abrir a tela; `envio_id` evita fechamento em dobro.
-Matriz lança peças, mão de obra, deslocamento/diária (opcional) e NF; filial vê valores e NF depois de Fechada.
-Fotos reduzidas no celular (1600 px, JPEG) e enviadas por `/api/fotos` (máx. 4 MB) para o bucket privado `os-arquivos`.
-Conflito (duas pessoas mexendo na mesma OS) devolve 409 e a tela recarrega.
+A OS não é mais um pedido com aprovação: é um **registro de serviço já feito**. Três status: SOLICITADA (pedido de
+equipe itinerante, só a filial, sem aprovação), FEITA (o lançamento), CANCELADA (só a matriz). Quem lança: mecânico
+(qualquer veículo, sempre equipe interna no próprio nome + até 3 auxiliares, funciona **sem internet**), filial (só
+os veículos dela) ou matriz (qualquer veículo) — filial/matriz escolhem equipe interna (mecânico + até 3 auxiliares)
+ou externa (oficina, texto livre). Campos do lançamento: veículo, data do serviço (pode ser anterior, nunca futura),
+grupo de peças, serviço feito, cidade, tipo de local (obra/galpão), km e/ou horímetro (um dos dois obrigatório),
+fotos (frente e painel obrigatórias; 1 a 3 fotos do defeito/serviço). Uma OS feita pode responder a uma solicitação
+em aberto (`os_atendida`). Valores e NF são opcionais, sem etapa própria: filial (OS dela) e matriz (todas) lançam a
+qualquer momento, sem mudar o status; diretoria só vê; mecânico nunca vê. Offline: fila em IndexedDB (`js/os/fila.js`),
+envio no evento online, pelo service worker (Background Sync) e ao abrir a tela; `envio_id` evita duplicar o
+lançamento. Fotos reduzidas no celular (1600 px, JPEG) e enviadas por `/api/fotos` (máx. 4 MB) para o bucket privado
+`os-arquivos`. O mecânico só vê as próprias OS dos últimos 7 dias (sem fila de trabalho atribuído).
 
 ## Como o código está organizado
 
@@ -70,10 +73,9 @@ na URL (`#aba?de=...`).
 
 ```bash
 cd dashboard_web
-npm test                     # 40 testes
+npm test                     # 48 testes
 npm run dev                  # http://localhost:3000, banco local .dados_locais/ (matriz@lokal, luis@lokal, joao@lokal / lokal1234)
 npm run frota | exemplo-os | limpar-exemplo | admin -- "Nome"   # Supabase (ver docs/publicar_sistema_os.md)
-node ../tests/apps_script/simulador.js   # Apps Script simulado (28 ok), rodar da pasta lokal-bi
 vercel --prod                # publicar
 ```
 
