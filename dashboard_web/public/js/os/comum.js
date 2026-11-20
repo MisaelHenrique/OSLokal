@@ -163,6 +163,23 @@ export function mensagem(alvo, texto, tipo = 'erro') {
   alvo.hidden = !texto;
 }
 
+/**
+ * Opções de placa pro datalist, com e sem traço: o navegador só sugere o que bate por substring com o que foi
+ * digitado, então "RDP4G57" (sem traço) só aparece na lista se existir uma opção escrita assim também.
+ */
+export function opcoesPlaca(placas) {
+  const vistas = new Set();
+  const opcoes = [];
+  for (const p of placas) {
+    if (!p || vistas.has(p)) continue;
+    vistas.add(p);
+    opcoes.push(el('option', { value: p }));
+    const semTraco = p.replace(/-/g, '');
+    if (semTraco !== p && !vistas.has(semTraco)) { vistas.add(semTraco); opcoes.push(el('option', { value: semTraco })); }
+  }
+  return opcoes;
+}
+
 /** Busca de veículo por placa, modelo ou final do chassi (datalist). Devolve { caixa, selecionado(), ao(fn) }. */
 /**
  * Busca de veículo: dois campos lado a lado, Placa (só os que têm) e Chassi (todos), cada um com sugestão real
@@ -171,7 +188,7 @@ export function mensagem(alvo, texto, tipo = 'erro') {
 export function buscaVeiculo(lista, { inicial = null } = {}) {
   const comPlaca = lista.filter((v) => v.placa);
   const idDlPlaca = 'dl-' + idEnvio();
-  const dlPlaca = el('datalist', { id: idDlPlaca }, comPlaca.map((v) => el('option', { value: v.placa })));
+  const dlPlaca = el('datalist', { id: idDlPlaca }, opcoesPlaca(comPlaca.map((v) => v.placa)));
   const campoPlaca = el('input', { list: idDlPlaca, placeholder: 'Digite a placa', autocomplete: 'off' });
 
   const idDlChassi = 'dl-' + idEnvio();

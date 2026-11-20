@@ -80,7 +80,8 @@ async function atualizarLista() {
     await Fila.guardarCache('lista', { os: d.os, em: d.agora });
     await Fila.guardarCache('colegas', E.colegas);
     await Fila.guardarCache('solicitacoes', E.solicitacoes);
-    desenhar();
+    // atualização em segundo plano não pode apagar um lançamento em andamento (ver depoisDeEnviar)
+    if (location.hash.slice(1) !== 'nova') desenhar();
   } catch { /* sem internet: fica a lista guardada */ }
 }
 
@@ -98,11 +99,14 @@ async function enviarFila() {
 async function depoisDeEnviar(r) {
   if (r.precisaLogin) E.semSessao = true;
   await lerFila();
+  conexao(); // faixa de pendentes/login sempre atualiza, sem mexer no conteúdo da tela
   if (r.enviados) {
     aviso(r.enviados === 1 ? 'OS enviada para o sistema.' : r.enviados + ' OS enviadas para o sistema.');
     await atualizarLista();
   }
-  desenhar();
+  // uma sincronização em segundo plano (de uma OS lançada antes) não pode apagar o formulário de uma nova OS
+  // que a pessoa já esteja preenchendo — só redesenha quando não tem lançamento em andamento.
+  if (location.hash.slice(1) !== 'nova') desenhar();
 }
 
 function conexao() {

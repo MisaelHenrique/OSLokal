@@ -5,7 +5,7 @@ import { el, fmt } from '../ui.js';
 import { GRUPOS, ORDEM_GRUPOS } from '../sistema.js';
 import { STATUS, TIPO_LOCAL, numeroOS, nomeVeiculo, podeLancar, podeSolicitar, lerNumero } from './regras.js';
 import { $, montarTopo, etiquetaStatus, campoFoto, fotoGuardada, idEnvio, registrarServiceWorker, mensagem,
-  buscaVeiculo, formularioLancamento, dataLocalISO, textoServico } from './comum.js';
+  buscaVeiculo, formularioLancamento, dataLocalISO, textoServico, opcoesPlaca } from './comum.js';
 
 const E = { u: null, lista: [], nomes: {}, mecanicos: [], oficinas: [], veiculos: null, carregadoEm: 0 };
 const ETAPAS_NOME = { SOLICITADA: 'Solicitada', LANCADA: 'Lançada', CANCELADA: 'Cancelada', VALORES: 'Valores lançados',
@@ -223,7 +223,7 @@ function telaTodas() {
 
   const placas = [...new Set(E.lista.map((o) => o.placa).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
   const idDlPlaca = 'dl-' + idEnvio();
-  const dlPlaca = el('datalist', { id: idDlPlaca }, placas.map((p) => el('option', { value: p })));
+  const dlPlaca = el('datalist', { id: idDlPlaca }, opcoesPlaca(placas));
   const filtroPlaca = el('input', { list: idDlPlaca, placeholder: 'Todas as placas', 'aria-label': 'Filtrar por placa' });
 
   const mecanicos = [...new Set(E.lista.map((o) => nome(o.direcionada_para)).filter((n) => n && n !== '—'))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
@@ -233,13 +233,15 @@ function telaTodas() {
 
   const busca = el('input', { type: 'search', placeholder: 'Buscar nº da OS, cidade, serviço…', 'aria-label': 'Buscar' });
   const caixa = el('div');
+  // traço/espaço não contam na busca por placa: "LUK0384" tem que achar "LUK-0384"
+  const semTraco = (s) => String(s || '').toLowerCase().replace(/[\s-]/g, '');
   const desenhar = () => {
     const f = filtroFilial ? filtroFilial.value : '';
-    const p = filtroPlaca.value.trim().toLowerCase();
+    const p = semTraco(filtroPlaca.value);
     const m = filtroMecanico.value.trim().toLowerCase();
     const t = busca.value.trim().toLowerCase();
     const lista = E.lista.filter((o) => (!f || o.filial === f)
-      && (!p || (o.placa || '').toLowerCase().includes(p))
+      && (!p || semTraco(o.placa).includes(p))
       && (!m || nome(o.direcionada_para).toLowerCase().includes(m) || (o.oficina_externa || '').toLowerCase().includes(m))
       && (!t || [numeroOS(o.id), o.cidade, o.sintoma, o.servico].join(' ').toLowerCase().includes(t)))
       .sort((a, b) => (a.aberta_em < b.aberta_em ? 1 : -1));
