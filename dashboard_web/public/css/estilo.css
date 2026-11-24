@@ -218,6 +218,19 @@ tr.detalhe table { font-size: 12px; }
 @keyframes giro { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .carregando .giro { animation: none; } }
 
+/* ── esqueleto de carregamento do /painel (mesma grade da Visão geral, sem o salto de layout) ── */
+.esqueleto-bloco {
+  background: linear-gradient(100deg, var(--cartao2) 40%, var(--linha) 50%, var(--cartao2) 60%);
+  background-size: 200% 100%; border-radius: 6px; animation: esqueleto-brilho 1.4s ease-in-out infinite;
+}
+.esqueleto .numero { display: flex; flex-direction: column; gap: 8px; }
+.esqueleto .numero .esqueleto-bloco:first-child { height: 11px; width: 60%; }
+.esqueleto .numero .esqueleto-bloco:last-child { height: 20px; width: 80%; }
+.esqueleto .cartao .esqueleto-bloco.titulo { height: 14px; width: 40%; margin-bottom: 14px; }
+.esqueleto .cartao .esqueleto-bloco.grafico { height: 300px; width: 100%; }
+@keyframes esqueleto-brilho { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .esqueleto-bloco { animation: none; } }
+
 /* ── login e usuários ── */
 .tela-login { min-height: 100vh; display: grid; place-items: center; padding: 20px 16px; }
 .caixa-login {

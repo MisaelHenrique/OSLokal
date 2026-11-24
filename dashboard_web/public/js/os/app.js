@@ -10,6 +10,7 @@ import { $, montarTopo, etiquetaStatus, campoFoto, fotoGuardada, idEnvio, regist
 const E = { u: null, lista: [], nomes: {}, mecanicos: [], oficinas: [], veiculos: null, carregadoEm: 0 };
 const ETAPAS_NOME = { SOLICITADA: 'Solicitada', LANCADA: 'Lançada', CANCELADA: 'Cancelada', VALORES: 'Valores lançados',
   CORRIGIDA: 'Corrigida' };
+const POR_PAGINA = 50;
 
 const nome = (login) => (login ? E.nomes[login] || login : '—');
 const conteudo = (...filhos) => $('conteudo').replaceChildren(...filhos.flat().filter(Boolean));
@@ -233,6 +234,8 @@ function telaTodas() {
 
   const busca = el('input', { type: 'search', placeholder: 'Buscar nº da OS, cidade, serviço…', 'aria-label': 'Buscar' });
   const caixa = el('div');
+  const rodape = el('div');
+  let pagina = 0;
   // traço/espaço não contam na busca por placa: "LUK0384" tem que achar "LUK-0384"
   const semTraco = (s) => String(s || '').toLowerCase().replace(/[\s-]/g, '');
   const desenhar = () => {
@@ -245,16 +248,29 @@ function telaTodas() {
       && (!m || nome(o.direcionada_para).toLowerCase().includes(m) || (o.oficina_externa || '').toLowerCase().includes(m))
       && (!t || [numeroOS(o.id), o.cidade, o.sintoma, o.servico].join(' ').toLowerCase().includes(t)))
       .sort((a, b) => (a.aberta_em < b.aberta_em ? 1 : -1));
-    caixa.replaceChildren(lista.length ? el('div', { class: 'lista-os' }, lista.map(linhaOS)) : el('div', { class: 'vazio', text: 'Nada encontrado.' }));
+    const paginas = Math.max(1, Math.ceil(lista.length / POR_PAGINA));
+    pagina = Math.min(pagina, paginas - 1);
+    const visiveis = lista.slice(pagina * POR_PAGINA, (pagina + 1) * POR_PAGINA);
+    caixa.replaceChildren(visiveis.length ? el('div', { class: 'lista-os' }, visiveis.map(linhaOS)) : el('div', { class: 'vazio', text: 'Nada encontrado.' }));
+    const ant = el('button', { class: 'botao mini', type: 'button', text: '← Anterior', disabled: pagina === 0 });
+    const prox = el('button', { class: 'botao mini', type: 'button', text: 'Próxima →', disabled: pagina >= paginas - 1 });
+    ant.addEventListener('click', () => { pagina--; desenhar(); });
+    prox.addEventListener('click', () => { pagina++; desenhar(); });
+    rodape.replaceChildren(paginas > 1
+      ? el('div', { class: 'paginacao' }, [ant, `Página ${pagina + 1} de ${paginas} · ${lista.length} OS`, prox])
+      : el('div', { class: 'paginacao' }, [`${lista.length} OS`]));
   };
-  [filtroFilial, filtroPlaca, filtroMecanico].forEach((c) => c && c.addEventListener(c.tagName === 'SELECT' ? 'change' : 'input', desenhar));
-  busca.addEventListener('input', desenhar);
+  const comDebounce = (f, ms = 250) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => f(...a), ms); }; };
+  const refiltrar = () => { pagina = 0; desenhar(); };
+  const refiltrarComDebounce = comDebounce(refiltrar);
+  filtroFilial.addEventListener('change', refiltrar);
+  [filtroPlaca, filtroMecanico, busca].forEach((c) => c.addEventListener('input', refiltrarComDebounce));
   desenhar();
   conteudo(
     el('div', { class: 'trilha' }, [el('a', { href: '#', text: '← Ordens de serviço' })]),
     el('h1', {}, 'Todas as OS'),
     el('div', { class: 'ferramentas' }, [filtroFilial, filtroPlaca, dlPlaca, filtroMecanico, dlMec, busca].filter(Boolean)),
-    caixa);
+    caixa, rodape);
 }
 
 async function telaSolicitacoes() {

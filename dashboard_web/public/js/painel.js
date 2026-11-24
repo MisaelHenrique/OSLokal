@@ -49,16 +49,30 @@ async function iniciar() {
   lerEndereco();
   montarTopo();
   await carregar();
-  window.addEventListener('hashchange', () => { lerEndereco(); montarFiltros(); desenhar(); });
+  window.addEventListener('hashchange', () => { lerEndereco(); montarAbas(); montarFiltros(); desenhar(); });
 }
 
+function esqueletoPainel() {
+  const numero = () => el('div', { class: 'numero' }, [el('div', { class: 'esqueleto-bloco' }), el('div', { class: 'esqueleto-bloco' })]);
+  const grafico = (classe) => el('section', { class: 'cartao ' + classe }, [
+    el('div', { class: 'esqueleto-bloco titulo' }), el('div', { class: 'esqueleto-bloco grafico' })]);
+  return el('div', { class: 'esqueleto' }, [
+    el('div', { class: 'numeros' }, Array.from({ length: 6 }, numero)),
+    el('div', { class: 'grade' }, [grafico('c6'), grafico('c6'), grafico('c12')])
+  ]);
+}
+
+let carregando = false;
 async function carregar() {
-  $('conteudo').replaceChildren(el('div', { class: 'carregando' }, [el('div', { class: 'giro' }), 'Carregando as OS do sistema…']));
+  if (carregando) return;
+  carregando = true;
+  $('conteudo').replaceChildren(esqueletoPainel());
   let d, v;
   try {
     [d, v] = await Promise.all([api.listaOS({}), api.veiculos()]);
   } catch (e) {
     $('conteudo').replaceChildren(el('div', { class: 'aviso vermelho' }, [el('b', { text: 'Não consegui ler as OS. ' }), e.message]));
+    carregando = false;
     return;
   }
   const os = d.os || [];
@@ -75,6 +89,7 @@ async function carregar() {
   montarAbas();
   montarFiltros();
   desenhar();
+  carregando = false;
 }
 
 // ───────────────────────── endereço (#aba?filtros) ─────────────────────────

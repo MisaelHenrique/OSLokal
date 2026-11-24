@@ -67,7 +67,8 @@ export function idEnvio() {
   return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12);
 }
 
-/** Reduz a foto no próprio celular (lado maior 1600 px, JPEG) antes de guardar ou enviar: ~300 KB. */
+/** Reduz a foto no próprio celular (lado maior 1600 px) antes de guardar ou enviar: ~300 KB.
+ *  WebP primeiro (menor, mesma qualidade); navegador sem suporte ao encoder cai pra JPEG sozinho. */
 export async function reduzirFoto(arquivo, lado = 1600, qualidade = 0.72) {
   if (!arquivo || !/^image\//.test(arquivo.type)) throw new Error('Escolha uma foto.');
   let img;
@@ -84,7 +85,8 @@ export async function reduzirFoto(arquivo, lado = 1600, qualidade = 0.72) {
   const c = document.createElement('canvas');
   c.width = Math.round(w * f); c.height = Math.round(h * f);
   c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-  const blob = await new Promise((ok) => c.toBlob(ok, 'image/jpeg', qualidade));
+  let blob = await new Promise((ok) => c.toBlob(ok, 'image/webp', qualidade));
+  if (!blob || blob.type !== 'image/webp') blob = await new Promise((ok) => c.toBlob(ok, 'image/jpeg', qualidade));
   if (!blob) throw new Error('Não consegui preparar a foto.');
   return blob;
 }

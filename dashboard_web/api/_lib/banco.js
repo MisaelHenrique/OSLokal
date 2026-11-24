@@ -41,8 +41,8 @@ async function rest(caminho, { method = 'GET', qs, corpo, prefer } = {}) {
 }
 
 const sb = {
-  async listar(t, { eq, em, ordem, limite } = {}) {
-    const qs = new URLSearchParams({ select: '*' });
+  async listar(t, { eq, em, ordem, limite, campos } = {}) {
+    const qs = new URLSearchParams({ select: campos ? campos.join(',') : '*' });
     filtroQS(qs, { eq, em });
     if (ordem) qs.set('order', ordem);
     if (limite) qs.set('limit', String(limite));
@@ -144,13 +144,14 @@ const casa = ({ eq = {}, em = {} } = {}) => (l) =>
 const copia = (x) => JSON.parse(JSON.stringify(x));
 
 const local = {
-  async listar(t, { eq, em, ordem, limite } = {}) {
+  async listar(t, { eq, em, ordem, limite, campos } = {}) {
     let r = carregar()[t].filter(casa({ eq, em }));
     if (ordem) {
       const [campo, dir] = ordem.split('.');
       r = [...r].sort((a, b) => (a[campo] > b[campo] ? 1 : a[campo] < b[campo] ? -1 : 0) * (dir === 'desc' ? -1 : 1));
     }
     if (limite) r = r.slice(0, limite);
+    if (campos) r = r.map((l) => Object.fromEntries(campos.map((c) => [c, l[c]])));
     return copia(r);
   },
   async inserir(t, linhas, { mesclar = false } = {}) {

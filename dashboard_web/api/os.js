@@ -228,17 +228,16 @@ async function ler(u, q) {
   if (q.get('id')) {
     const os = await carregarOS(q.get('id'));
     if (!podeVer(u, os)) throw new ErroOS(404, 'OS não encontrada.');
-    const eventos = await banco.listar('os_eventos', { eq: { os_id: os.id }, ordem: 'em.asc' });
+    const CAMPOS_LIGADA = ['id', 'status', 'filial', 'aberta_por'];
+    const [eventos, sol, respostas, historicoRecente] = await Promise.all([
+      banco.listar('os_eventos', { eq: { os_id: os.id }, ordem: 'em.asc' }),
+      os.os_atendida ? banco.listar('os', { eq: { id: os.os_atendida }, campos: CAMPOS_LIGADA }) : [],
+      os.status === 'SOLICITADA' ? banco.listar('os', { eq: { os_atendida: os.id }, campos: CAMPOS_LIGADA }) : [],
+      ultimasManutencoes(u, os)
+    ]);
     const ligadas = [];
-    if (os.os_atendida) {
-      const [sol] = await banco.listar('os', { eq: { id: os.os_atendida } });
-      if (sol && podeVer(u, sol)) ligadas.push({ id: sol.id, numero: numeroOS(sol.id), status: sol.status, papel: 'solicitacao' });
-    }
-    if (os.status === 'SOLICITADA') {
-      const respostas = await banco.listar('os', { eq: { os_atendida: os.id } });
-      respostas.filter((o) => podeVer(u, o)).forEach((o) => ligadas.push({ id: o.id, numero: numeroOS(o.id), status: o.status, papel: 'resposta' }));
-    }
-    const historicoRecente = await ultimasManutencoes(u, os);
+    if (sol[0] && podeVer(u, sol[0])) ligadas.push({ id: sol[0].id, numero: numeroOS(sol[0].id), status: sol[0].status, papel: 'solicitacao' });
+    respostas.filter((o) => podeVer(u, o)).forEach((o) => ligadas.push({ id: o.id, numero: numeroOS(o.id), status: o.status, papel: 'resposta' }));
     return { os: comAcoes(u, os), eventos, ligadas, historicoRecente };
   }
   const filtro = q.get('chassi') ? { eq: { chassi: q.get('chassi') } } : {};
