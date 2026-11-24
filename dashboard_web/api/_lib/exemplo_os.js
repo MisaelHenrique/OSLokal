@@ -98,7 +98,7 @@ export function osExemplo(veiculos, usuarios, { primeiroId = 1, agora = Date.now
       execucao: null, oficina_externa: '', direcionada_para: null, auxiliares: [], foto_frente: null, foto_painel: null,
       fotos_defeito: [], os_atendida: null, km: null, horimetro: null, envio_id: null,
       valor_pecas: null, valor_mao_obra: null, valor_deslocamento: null, valor_total: null, nf_numero: '', fornecedor: '', nf_arquivo: null,
-      cancelamento_motivo: '', aberta_por: quem, aberta_em: h(horasAtras), alterado_em: h(horasAtras), exemplo: true
+      notas: [], cancelamento_motivo: '', aberta_por: quem, aberta_em: h(horasAtras), alterado_em: h(horasAtras), exemplo: true
     };
   };
 
@@ -120,8 +120,7 @@ export function osExemplo(veiculos, usuarios, { primeiroId = 1, agora = Date.now
     const externa = r() < 0.2;
     const equipe = externa
       ? { execucao: 'EXTERNA', direcionada_para: null, auxiliares: [], oficina_externa: pega(OFICINAS) }
-      : { execucao: 'INTERNA', direcionada_para: i === 0 ? mec[0] : pega(mec),
-        auxiliares: r() < 0.3 ? [pega(mec)] : [] };
+      : { execucao: 'INTERNA', direcionada_para: i === 0 ? mec[0] : pega(mec), auxiliares: [] };
     const responde = i < 5 ? solicitacoes[i] : null;
     const comValores = r() < 0.6;
     const o = {
@@ -129,14 +128,15 @@ export function osExemplo(veiculos, usuarios, { primeiroId = 1, agora = Date.now
       km: Math.round(20000 + r() * 280000), horimetro: r() < 0.3 ? Math.round(1000 + r() * 9000) : null,
       os_atendida: responde ? responde.id : null, ...equipe
     };
-    if (equipe.direcionada_para) o.auxiliares = o.auxiliares.filter((m) => m !== o.direcionada_para);
     if (comValores) {
       o.valor_pecas = Math.round(200 + r() * 6000) + Math.round(r() * 99) / 100;
       o.valor_mao_obra = Math.round(150 + r() * 1800);
       o.valor_deslocamento = r() < 0.3 ? Math.round(80 + r() * 400) : null;
       o.valor_total = Math.round((o.valor_pecas + o.valor_mao_obra + (o.valor_deslocamento || 0)) * 100) / 100;
-      o.nf_numero = String(1000 + Math.floor(r() * 9000));
-      o.fornecedor = pega(OFICINAS);
+      o.notas = [{ numero: String(1000 + Math.floor(r() * 9000)), fornecedor: pega(OFICINAS), valor: o.valor_pecas, arquivo: null }];
+      if (r() < 0.15) {
+        o.notas.push({ numero: String(1000 + Math.floor(r() * 9000)), fornecedor: pega(OFICINAS), valor: o.valor_mao_obra, arquivo: null });
+      }
     }
     ev(o.id, 'LANCADA', o.aberta_por, o.aberta_em);
     if (comValores) ev(o.id, 'VALORES', admin, h(Math.max(0.2, horasAtras - 2)));

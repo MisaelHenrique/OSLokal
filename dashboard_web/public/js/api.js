@@ -31,8 +31,6 @@ export const api = {
   entrar: (usuario, senha) => postar('/api/login', { usuario, senha }),
   sair: () => postar('/api/logout'),
   trocarSenha: (atual, nova) => postar('/api/senha', { atual, nova }),
-  dados: ({ exemplo = false, atualizar = false } = {}) =>
-    pedir('/api/dados' + (exemplo ? '?modo=exemplo' : atualizar ? '?atualizar=1' : '')),
   usuarios: () => pedir('/api/usuarios'),
   salvarUsuario: (u) => postar('/api/usuarios', u),
   resetarSenha: (login) => postar('/api/usuarios', { login, acao: 'resetar_senha' }),

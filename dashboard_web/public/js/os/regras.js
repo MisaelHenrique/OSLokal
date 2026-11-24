@@ -15,13 +15,13 @@ export const TIPOS_FOTO = {
 };
 export const FOTOS_OBRIGATORIAS = ['frente', 'painel'];
 export const MAX_FOTOS_DEFEITO = 3;
-export const MAX_AUXILIARES = 3;
 
 export const CAMPOS_FINANCEIROS = ['valor_pecas', 'valor_mao_obra', 'valor_deslocamento', 'valor_total', 'nf_numero',
-  'fornecedor', 'nf_arquivo'];
+  'fornecedor', 'nf_arquivo', 'notas'];
+export const MAX_NOTAS = 10;
 
-// Peças por grupo (ver Pecas_por_Grupo_LOKAL.md na raiz do projeto — não confundir com SUBGRUPOS de sistema.js,
-// que é outra lista, usada pelo /painel). PNE não tem lista no documento: o grupo existe, mas sem peças pra marcar.
+// Peças por grupo (ver Pecas_por_Grupo_LOKAL.md na raiz do projeto). PNE não tem lista no documento: o grupo
+// existe, mas sem peças pra marcar.
 export const PECAS_POR_GRUPO = {
   MOT: ['Injeção', 'Turbo', 'Radiador', 'Bomba d\'água', 'Mangueiras', 'Correias', 'Cabeçote', 'Juntas'],
   TRA: ['Caixa de câmbio', 'Embreagem', 'Cardan', 'Diferencial', 'Tomada de força (PTO)'],
@@ -134,10 +134,73 @@ export function melhorSemaforo(alvo, dataAlvo, historico) {
     if (sel.posicao && h.posicao && sel.posicao !== h.posicao) continue;
     const r = semaforoPeca(dataAlvo, h.data_servico);
     if (r && (!melhor || r.dias < melhor.dias)) {
-      melhor = { ...r, peca: sel.peca, grupo: sel.grupo, posicao: h.posicao || sel.posicao || '', dataAnterior: h.data_servico };
+      // "anterior" carrega o próprio item do histórico que bateu (não só a data), pra quem chama conseguir
+      // voltar na manutenção original (ex.: quem fez aquele serviço) — ver relatorioReincidencias.
+      melhor = { ...r, peca: sel.peca, grupo: sel.grupo, posicao: h.posicao || sel.posicao || '', dataAnterior: h.data_servico, anterior: h };
     }
   }
   return melhor;
+}
+
+/**
+ * Reincidências de garantia pra toda a frota, a partir de uma lista de OS já filtrada por quem pode ver
+ * (podeVer) — mesma lógica de ultimasManutencoes/melhorSemaforo, mas cruzando cada veículo com o próprio
+ * histórico, pra toda a frota de uma vez. `hoje` (YYYY-MM-DD) é sempre passado por quem chama (sem default
+ * aqui: esta função não depende de Date/fuso).
+ * Devolve { reincidencias, emGarantia }:
+ *  - reincidencias: toda troca já feita que, quando aconteceu, repetiu uma peça trocada há até 90 dias no
+ *    mesmo veículo — com a 1ª troca (quem fez o serviço que falhou) e a 2ª (quem fez o reparo) separadas,
+ *    pra não confundir um responsável com o outro (serve pra ranking: quais peças/responsáveis mais reincidem).
+ *  - emGarantia: a troca mais recente de cada peça em cada veículo, só quando ainda dentro da janela de 90
+ *    dias contando de `hoje` (serve pra saber quais peças ainda estão "sob observação" — não é um problema,
+ *    é só a lista de serviços recentes que, se falharem nos próximos dias, viram reincidência).
+ */
+export function relatorioReincidencias(osList, hoje) {
+  const porChassi = new Map();
+  for (const o of osList) {
+    if (o.status !== 'FEITA') continue;
+    const pecasDecodificadas = (o.pecas || []).map(decodificarPeca).filter(Boolean);
+    if (!pecasDecodificadas.length) continue;
+    const lista = porChassi.get(o.chassi) || [];
+    lista.push({ ...o, pecasDecodificadas });
+    porChassi.set(o.chassi, lista);
+  }
+  // empate na data_servico desempata pela mais lançada por último (id maior) — mesmo critério de ultimasManutencoes
+  const antesDe = (h, o) => h.data_servico < o.data_servico || (h.data_servico === o.data_servico && h.id < o.id);
+  const resumoOS = (o) => ({ osId: o.id, data_servico: o.data_servico, execucao: o.execucao,
+    direcionada_para: o.direcionada_para, oficina_externa: o.oficina_externa });
+  const reincidencias = [];
+  const emGarantia = [];
+  for (const [chassi, lista] of porChassi) {
+    const ordenadas = [...lista].sort((a, b) => (a.data_servico !== b.data_servico ? (a.data_servico < b.data_servico ? 1 : -1) : b.id - a.id));
+    for (const o of ordenadas) {
+      const anteriores = lista.flatMap((h) => (antesDe(h, o)
+        ? h.pecasDecodificadas.map((p) => ({ ...p, data_servico: h.data_servico, origem: h })) : []));
+      const melhor = melhorSemaforo(o.pecasDecodificadas, o.data_servico, anteriores);
+      if (melhor) {
+        reincidencias.push({ chassi, placa: o.placa, veiculo: o.veiculo, filial: o.filial, grupo: melhor.grupo,
+          peca: melhor.peca, posicao: melhor.posicao, cor: melhor.cor, dias: melhor.dias,
+          primeira: resumoOS(melhor.anterior.origem), segunda: resumoOS(o) });
+      }
+    }
+    // a troca mais recente de cada peça neste veículo (ordenadas já está da mais nova pra mais antiga)
+    const ultimaPorPeca = new Map();
+    for (const o of ordenadas) {
+      for (const p of o.pecasDecodificadas) {
+        const chave = p.grupo + ':' + p.peca + ':' + (p.posicao || '');
+        if (!ultimaPorPeca.has(chave)) ultimaPorPeca.set(chave, { ...p, o });
+      }
+    }
+    for (const { grupo, peca, posicao, o } of ultimaPorPeca.values()) {
+      const r = semaforoPeca(hoje, o.data_servico);
+      if (r) {
+        emGarantia.push({ chassi, placa: o.placa, veiculo: o.veiculo, filial: o.filial, grupo, peca, posicao,
+          dias: r.dias, restam: 90 - r.dias, data_servico: o.data_servico, execucao: o.execucao,
+          direcionada_para: o.direcionada_para, oficina_externa: o.oficina_externa, osId: o.id });
+      }
+    }
+  }
+  return { reincidencias, emGarantia };
 }
 
 export function filiaisDe(u) {
@@ -278,12 +341,17 @@ export function conferirFinanceiro(d) {
   for (const [k, n] of Object.entries(v)) {
     if (Number.isNaN(n) || (n !== null && n < 0)) return { erro: 'Valor inválido: ' + k.replace('valor_', '').replace('_', ' ') + '.' };
   }
+  const listaNotas = Array.isArray(d.notas) ? d.notas : [];
+  if (listaNotas.length > MAX_NOTAS) return { erro: 'No máximo ' + MAX_NOTAS + ' notas fiscais.' };
+  const notas = [];
+  for (const n of listaNotas) {
+    const valor = lerNumero(n && n.valor);
+    if (Number.isNaN(valor) || (valor !== null && valor < 0)) return { erro: 'Valor de nota fiscal inválido.' };
+    notas.push({ numero: texto(n && n.numero).slice(0, 40), fornecedor: texto(n && n.fornecedor).slice(0, 120), valor,
+      arquivo: (n && n.arquivo) || null });
+  }
   const total = (v.valor_pecas || 0) + (v.valor_mao_obra || 0) + (v.valor_deslocamento || 0);
-  return {
-    erro: '',
-    valores: { ...v, valor_total: total > 0 ? Math.round(total * 100) / 100 : null, nf_numero: texto(d.nf_numero).slice(0, 40),
-      fornecedor: texto(d.fornecedor).slice(0, 120) }
-  };
+  return { erro: '', valores: { ...v, valor_total: total > 0 ? Math.round(total * 100) / 100 : null, notas } };
 }
 
 /** Usuário automático: primeiro nome, minúsculo, sem acento, + "@lokal". Repetido ganha 1, 2, 3... */

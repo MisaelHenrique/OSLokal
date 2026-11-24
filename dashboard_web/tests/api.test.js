@@ -1,9 +1,9 @@
-// Funções da api/ no modo local (sem SUPABASE_URL nem APPS_SCRIPT_URL): banco local de teste e dados de exemplo/.
+// Funções da api/ no modo local (sem SUPABASE_URL): banco local de teste.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { chamar, entrar, preparar } from './ajuda.js';
 
-const { login, dados, usuarios, sessao, senha } = await preparar();
+const { login, usuarios, sessao, senha, os } = await preparar();
 
 test('login errado é recusado e não cria cookie', async () => {
   const r = await chamar(login, { method: 'POST', body: { usuario: 'matriz@lokal', senha: 'errada123' } });
@@ -17,27 +17,14 @@ test('login aceita o usuário sem o @lokal', async () => {
   assert.equal(r.d.usuario.login, 'matriz@lokal');
 });
 
-test('sem sessão: dados e sessão respondem 401', async () => {
-  assert.equal((await chamar(dados)).status, 401);
+test('sem sessão: sessão e os respondem 401', async () => {
   assert.equal((await chamar(sessao)).status, 401);
+  assert.equal((await chamar(os)).status, 401);
 });
 
-test('usuário de filial recebe só as filiais dele na dashboard', async () => {
+test('filial não administra usuários', async () => {
   const c = await entrar(login, 'patio@lokal');
-  const r = await chamar(dados, { cookie: c });
-  assert.equal(r.status, 200);
-  const fs = new Set([...r.d.notas, ...r.d.itens, ...r.d.veiculos].map((x) => x.filial));
-  assert.deepEqual([...fs].sort(), ['MATRIZ', 'OUTROS']);
-  assert.ok(r.d.notas.length > 0);
-  assert.equal((await chamar(usuarios, { cookie: c })).status, 403, 'filial não administra usuários');
-});
-
-test('diretoria vê todas as filiais; mecânico não entra na dashboard', async () => {
-  const c = await entrar(login, 'diretoria@lokal');
-  const r = await chamar(dados, { cookie: c });
-  assert.ok(new Set(r.d.notas.map((n) => n.filial)).size >= 5);
-  const m = await entrar(login, 'joao@lokal');
-  assert.equal((await chamar(dados, { cookie: m })).status, 403);
+  assert.equal((await chamar(usuarios, { cookie: c })).status, 403);
 });
 
 test('mecânico fica 30 dias logado, os demais 12 h', async () => {
@@ -91,5 +78,5 @@ test('desativado perde o acesso mesmo com cookie válido', async () => {
   const cAdmin = await entrar(login, 'matriz@lokal');
   const c = await entrar(login, 'luis@lokal');
   await chamar(usuarios, { method: 'POST', cookie: cAdmin, body: { login: 'luis@lokal', nome: 'Luís', perfil: 'FILIAL', filiais: ['LUÍS ANDRÉ'], ativo: false } });
-  assert.equal((await chamar(dados, { cookie: c })).status, 401);
+  assert.equal((await chamar(sessao, { cookie: c })).status, 401);
 });

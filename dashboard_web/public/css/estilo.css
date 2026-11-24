@@ -150,6 +150,23 @@ button, input, select { font: inherit; color: inherit; }
 .numero .rotulo { font-size: 12px; color: var(--tinta2); font-weight: 600; }
 .numero .valor { font-size: clamp(18px, 1.55vw, 24px); white-space: nowrap; font-weight: 700; margin-top: 4px; line-height: 1.15; overflow-wrap: anywhere; }
 .numero .extra { font-size: 12px; color: var(--apagado); margin-top: 6px; }
+
+/* ── indicadores grandes e clicáveis (ex.: aba Reincidências e garantias) ── */
+.indicadores { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 16px; }
+.indicador {
+  background: var(--cartao); border: 1px solid var(--linha); border-left: 6px solid var(--linha-forte); border-radius: 12px;
+  padding: 18px 20px; box-shadow: var(--sombra); min-width: 0; cursor: pointer; text-align: left; font: inherit; color: inherit;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.indicador:hover, .indicador:focus-visible { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(22, 32, 43, .14); }
+.indicador[aria-pressed="true"] { background: var(--cartao2); border-left-width: 10px; }
+.indicador .rotulo { font-size: 13px; color: var(--tinta2); font-weight: 700; }
+.indicador .valor { font-size: clamp(30px, 3.4vw, 42px); font-weight: 800; margin-top: 6px; line-height: 1; }
+.indicador .extra { font-size: 12.5px; color: var(--apagado); margin-top: 8px; }
+.indicador.cor-vermelho { border-left-color: var(--erro); }
+.indicador.cor-amarelo { border-left-color: var(--aviso); }
+.indicador.cor-verde { border-left-color: var(--ok); }
+.indicador.cor-marca { border-left-color: var(--marca); }
 .numero .extra .seta { font-weight: 700; color: var(--tinta2); }
 
 /* ── grade de cartões ── */
@@ -222,6 +239,7 @@ tr.detalhe table { font-size: 12px; }
 /* ── responsivo ── */
 @media (max-width: 1100px) {
   .numeros { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .indicadores { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .filtros { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .c8, .c7, .c6, .c5, .c4 { grid-column: span 12; }
 }
@@ -233,6 +251,8 @@ tr.detalhe table { font-size: 12px; }
   .corpo { padding: 12px 16px 40px; }
   .numeros { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .numero .valor { font-size: 17px; }
+  .indicadores { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .indicador { padding: 14px; }
   .filtros { grid-template-columns: 1fr 1fr; }
   .filtros .limpar { grid-column: span 2; }
   .grafico { height: 260px; }
@@ -242,5 +262,5 @@ tr.detalhe table { font-size: 12px; }
 }
 @media print {
   .topo .acoes, .filtros, .abas, .alternar { display: none !important; }
-  .cartao, .numero { box-shadow: none; break-inside: avoid; }
+  .cartao, .numero, .indicador { box-shadow: none; break-inside: avoid; }
 }

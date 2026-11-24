@@ -51,5 +51,5 @@ createServer(async (req, res) => {
   console.log(process.env.SUPABASE_URL ? 'OS e usuários: Supabase (SUPABASE_URL do .env.local).'
     : 'OS e usuários: banco de teste em .dados_locais/ (senha lokal1234: matriz@lokal, luis@lokal, joao@lokal, diretoria@lokal).'
       + '\nPara recomeçar do zero, apague a pasta .dados_locais.');
-  console.log(process.env.APPS_SCRIPT_URL ? 'Dashboard: CONSOLIDAÇÃO pelo Apps Script.' : 'Dashboard: dados de exemplo/.');
+  console.log('Dashboard (/painel): lê o mesmo sistema de OS acima.');
 });

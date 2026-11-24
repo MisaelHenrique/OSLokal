@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { gerarLogin, lerNumero, conferirFinanceiro, erroNovaSenha, erroLancamento, erroSolicitacao, erroCorrecao, podeVer,
-  recortarOS, acoesPossiveis, pecasDoGrupo, codificarPeca, decodificarPeca, erroPecas, semaforoPeca, melhorSemaforo } from '../public/js/os/regras.js';
+  recortarOS, acoesPossiveis, pecasDoGrupo, codificarPeca, decodificarPeca, erroPecas, semaforoPeca, melhorSemaforo,
+  MAX_NOTAS, relatorioReincidencias } from '../public/js/os/regras.js';
 
 test('login automático: primeiro nome sem acento + @lokal, repetidos numerados a partir de 1', () => {
   assert.equal(gerarLogin('André Souza', []), 'andre@lokal');
@@ -26,6 +27,17 @@ test('financeiro soma o total e aceita tudo vazio (valores são opcionais)', () 
   assert.equal(conferirFinanceiro({}).valores.valor_total, null);
   assert.equal(conferirFinanceiro({ valor_pecas: '10,10', valor_mao_obra: '0,20', valor_deslocamento: '' }).valores.valor_total, 10.3);
   assert.ok(conferirFinanceiro({ valor_pecas: '-1' }).erro);
+});
+
+test('financeiro aceita zero ou várias notas fiscais e confere cada uma', () => {
+  assert.deepEqual(conferirFinanceiro({}).valores.notas, []);
+  const r = conferirFinanceiro({ notas: [{ numero: '1', fornecedor: 'A', valor: '10,50' }, { numero: '2', fornecedor: 'B', valor: '' }] });
+  assert.equal(r.erro, '');
+  assert.equal(r.valores.notas.length, 2);
+  assert.equal(r.valores.notas[0].valor, 10.5);
+  assert.equal(r.valores.notas[1].valor, null);
+  assert.ok(conferirFinanceiro({ notas: [{ numero: '1', valor: '-5' }] }).erro, 'valor negativo numa nota é inválido');
+  assert.ok(conferirFinanceiro({ notas: Array.from({ length: MAX_NOTAS + 1 }, () => ({})) }).erro, 'passa do máximo de notas');
 });
 
 const VEICULO = { chassi: 'ABC123', placa: 'ABC-1234', filial: 'LUÍS ANDRÉ', ativo: true };
@@ -153,6 +165,40 @@ test('melhorSemaforo com posição: só acende se for o mesmo eixo/lado; sem pos
   const semPosicaoNoHistorico = melhorSemaforo([{ grupo: 'FRE', peca: 'Lonas', posicao: '2º eixo · Direito' }], '2026-11-09',
     [{ grupo: 'FRE', peca: 'Lonas', posicao: '', data_servico: '2026-10-25' }]);
   assert.equal(semPosicaoNoHistorico.cor, 'vermelho');
+});
+
+test('relatorioReincidencias: cruza cada veículo com o próprio histórico, atribui ao responsável da 1ª troca (não da 2ª) e aponta o que ainda está em garantia hoje', () => {
+  const osList = [
+    { id: 1, status: 'FEITA', chassi: 'A1', placa: 'AAA-0001', veiculo: 'CAMINHAO X', filial: 'MATRIZ',
+      pecas: ['FRE:Lonas:1º eixo · Esquerdo'], data_servico: '2026-08-01', execucao: 'INTERNA', direcionada_para: 'joao@lokal' },
+    { id: 2, status: 'FEITA', chassi: 'A1', placa: 'AAA-0001', veiculo: 'CAMINHAO X', filial: 'MATRIZ',
+      pecas: ['FRE:Lonas:1º eixo · Esquerdo'], data_servico: '2026-08-20', execucao: 'INTERNA', direcionada_para: 'pedro@lokal' }, // 19 dias da OS 1: vermelho
+    { id: 3, status: 'FEITA', chassi: 'A1', placa: 'AAA-0001', veiculo: 'CAMINHAO X', filial: 'MATRIZ',
+      pecas: ['FRE:Lonas:1º eixo · Esquerdo'], data_servico: '2026-11-10', execucao: 'INTERNA', direcionada_para: 'joao@lokal' }, // 82 dias da OS 2: verde
+    { id: 4, status: 'FEITA', chassi: 'B1', placa: 'BBB-0002', veiculo: 'CAMINHAO Y', filial: 'OUTROS',
+      pecas: ['SUS:Molas'], data_servico: '2026-11-01', execucao: 'EXTERNA', oficina_externa: 'Borracharia X' }, // sem histórico: não reincide
+    { id: 5, status: 'SOLICITADA', chassi: 'A1', placa: 'AAA-0001', veiculo: 'CAMINHAO X', filial: 'MATRIZ', pecas: [] },
+    { id: 6, status: 'FEITA', chassi: 'A1', placa: 'AAA-0001', veiculo: 'CAMINHAO X', filial: 'MATRIZ', pecas: [], data_servico: '2026-11-05' }
+  ];
+  const { reincidencias, emGarantia } = relatorioReincidencias(osList, '2026-11-23');
+
+  assert.equal(reincidencias.length, 2, 'só as OS 2 e 3 repetem peça trocada há até 90 dias no mesmo veículo');
+  assert.deepEqual(reincidencias.map((r) => r.segunda.osId).sort(), [2, 3]);
+  const rOS2 = reincidencias.find((r) => r.segunda.osId === 2);
+  assert.equal(rOS2.cor, 'vermelho'); assert.equal(rOS2.dias, 19);
+  assert.equal(rOS2.primeira.osId, 1); assert.equal(rOS2.primeira.direcionada_para, 'joao@lokal', 'quem fez o serviço que falhou, não quem consertou de novo');
+  assert.equal(rOS2.segunda.direcionada_para, 'pedro@lokal');
+  const rOS3 = reincidencias.find((r) => r.segunda.osId === 3);
+  assert.equal(rOS3.cor, 'verde'); assert.equal(rOS3.dias, 82, 'compara com a OS 2 (82 dias), não com a OS 1 (fora da janela de 90)');
+  assert.equal(rOS3.primeira.osId, 2); assert.equal(rOS3.primeira.direcionada_para, 'pedro@lokal');
+
+  // emGarantia: a troca mais recente de cada peça por veículo, contra "hoje" — uma entrada por veículo aqui
+  assert.equal(emGarantia.length, 2);
+  const garantiaA = emGarantia.find((a) => a.chassi === 'A1');
+  assert.equal(garantiaA.osId, 3, 'usa a troca mais recente (OS 3), não a 1 ou 2');
+  assert.equal(garantiaA.dias, 13); assert.equal(garantiaA.restam, 77); // 2026-11-10 -> 2026-11-23
+  const garantiaB = emGarantia.find((a) => a.chassi === 'B1');
+  assert.equal(garantiaB.dias, 22); assert.equal(garantiaB.restam, 68); assert.equal(garantiaB.oficina_externa, 'Borracharia X');
 });
 
 test('senha nova', () => {

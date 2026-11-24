@@ -59,7 +59,8 @@ create table if not exists os (
   km                  numeric, horimetro numeric,
   envio_id            text,                           -- identifica o lançamento enviado pelo celular (evita duplicar)
   valor_pecas         numeric, valor_mao_obra numeric, valor_deslocamento numeric, valor_total numeric,
-  nf_numero           text not null default '', fornecedor text not null default '', nf_arquivo text,
+  nf_numero           text not null default '', fornecedor text not null default '', nf_arquivo text, -- substituído por "notas"; mantido só por histórico
+  notas               jsonb not null default '[]'::jsonb, -- lista de notas fiscais: [{numero, fornecedor, valor, arquivo}, ...]
   cancelada_por       text, cancelada_em timestamptz, cancelamento_motivo text not null default '',
   exemplo             boolean not null default false,
   criado_em           timestamptz not null default now(),

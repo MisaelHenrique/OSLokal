@@ -1,12 +1,16 @@
 # Contexto do projeto LOKAL BI (leia antes de propor qualquer coisa)
 
-Atualizado em 2026-11-09. **Uma coisa só agora: `dashboard_web/`.** Em 30/10 o Misael decidiu que o sistema de OS
+Atualizado em 2026-11-23. **Uma coisa só agora: `dashboard_web/`.** Em 30/10 o Misael decidiu que o sistema de OS
 (Supabase) substitui o sistema de lançamento por planilhas Google — tudo relacionado a ele (Apps Script, as duas
 frentes de lançamento por planilha/link, o dashboard Streamlit, o pipeline Python que alimentava os dois) foi
 apagado do projeto. Não existe mais fora de `dashboard_web/`.
 
 Em 09/11 o fluxo do sistema de OS em si mudou bastante: saiu aprovação/direcionamento/execução, entrou lançar um
 serviço já feito. Ver `PLANO_OS_SIMPLIFICADA.md` (plano aprovado) e a seção "Decisões tomadas em 2026-11-09".
+
+Em 23/11 o `/painel` (dashboard) também passou a ler só do sistema de OS — ver "Decisões tomadas em 2026-11-23"
+logo abaixo. A tabela "Estado real" e as seções anteriores a essa data que falam de planilha/Apps Script pro
+`/painel` estão **desatualizadas**; ficam só como histórico.
 
 ## Regras do Misael (valem sempre)
 
@@ -30,7 +34,7 @@ mais um pedido com aprovação. Pedágio e mobilização/desmobilização contin
 | Parte | Estado |
 |---|---|
 | **Sistema de OS** (rotas `/os` e `/os/mecanico`, banco Supabase — `banco/esquema.sql`) | Reescrito em 09/11 pro fluxo simplificado (48/48 testes): mecânico, filial ou matriz **lança** uma OS já feita (equipe interna ou oficina externa); filial também pode **solicitar** equipe itinerante sem aprovação; só a matriz cancela; valores/NF são opcionais, sem etapa própria. Login próprio (usuário gerado tipo `andre@lokal`, senha padrão `mudar123`). **Demo online publicada** (link na seção "Decisões tomadas em 2026-11-09" abaixo) mas ainda no esquema **antigo** (aprovação/direcionamento) — falta rodar `banco/atualizar_simplificado.sql` nela, reseedar e fazer novo deploy antes de mostrar ao cliente de novo |
-| **`/painel`** (indicadores) | Existe, mas **sem fonte de dado real agora**: lia a planilha Google via `apps_script/DashboardServidor.gs`, que foi apagado junto com o resto do Apps Script em 30/10. `api/_lib/planilha.js` (dentro de `dashboard_web/`) não foi tocado de propósito — o Misael vai religar isso no Supabase/sistema de OS pessoalmente. **Lembrete pendente: perguntar por essa reconexão quando o Misael pedir a versão final do sistema para entrega** — sem ela o `/painel` só mostra o modo de exemplo |
+| **`/painel`** (indicadores) | **Reescrito em 23/11:** lê o sistema de OS (`/api/os` + `/api/veiculos`), não mais planilha/Apps Script. `api/dados.js` e `api/_lib/planilha.js` foram apagados (ver "Decisões tomadas em 2026-11-23"). Sem itemização por nota (peça/qtd por linha) nem subgrupo — o sistema de OS não guarda isso |
 | Lançamentos reais de manutenção | Nenhum ainda. Só dado de exemplo (`npm run exemplo-os`) |
 
 ## Onde ler cada coisa
@@ -41,11 +45,11 @@ mais um pedido com aprovação. Pedágio e mobilização/desmobilização contin
 | `PLANO_DASHBOARD_WEB.md` | Plano original do `/painel` (arquitetura, indicadores) — a parte de fonte de dado (planilha Google) está desatualizada |
 | `docs/ATUALIZACAO_SISTEMA_OS.md` | **Ler antes de mexer no sistema de OS**: o que é, como funciona, como rodar e publicar, arquivos |
 | `docs/publicar_sistema_os.md` | Passo a passo de publicar o sistema de OS (Supabase + Vercel) |
-| `docs/publicar_dashboard_web.md` | Como publicar o `/painel` — parte da fonte de dado (Apps Script) está desatualizada, ver "Estado real" |
+| `docs/publicar_dashboard_web.md` | Como publicar — os passos de Apps Script/`DASH_TOKEN` não valem mais pro `/painel` (ver "Decisões tomadas em 2026-11-23"); os de Vercel continuam |
 | `dashboard_web/CONTEXTO.md` | Regras, decisões, organização do código, próximos passos |
 | `dashboard_web/banco/esquema.sql` | Tabelas do Supabase (usuarios, veiculos, os, os_eventos, arquivos) |
-| `dashboard_web/public/js/os/regras.js` | Regras do sistema de OS (quem vê/faz o quê, validações) — ler antes de mudar qualquer comportamento |
-| `dashboard_web/tests/` (`npm test`, dentro de `dashboard_web/`) | 48 testes: `kpis`, `acesso`, `api`, `sessao` (`/painel`) + `regras`, `os` (sistema de OS) |
+| `dashboard_web/public/js/os/regras.js` | Regras do sistema de OS (quem vê/faz o quê, validações, `relatorioReincidencias`) — ler antes de mudar qualquer comportamento; usado pelo sistema de OS **e** pelo `/painel` |
+| `dashboard_web/tests/` (`npm test`, dentro de `dashboard_web/`) | `kpis` (cálculos do `/painel`), `acesso`, `api`, `sessao` + `regras`, `os` (sistema de OS) |
 | `PLANO_OS_SIMPLIFICADA.md` | Plano aprovado do fluxo novo do sistema de OS (09/11) — leia antes de mexer no fluxo |
 
 ## Decisões tomadas em 2026-10-30 (Misael)
@@ -93,9 +97,30 @@ mais um pedido com aprovação. Pedágio e mobilização/desmobilização contin
   tabela "Estado real"); precisa clicar em "Demonstração" no topo pra mostrar os dados de exemplo. Não é
   automático, e isso já era assim antes de eu mexer em qualquer coisa. Nenhum arquivo de `/painel` foi tocado.
 
-## Decisões em aberto (não decidir sozinho)
+## Decisões tomadas em 2026-11-23 (Misael)
 
-- **Como exatamente o `/painel` vai ler do Supabase** (direto da tabela `os`, ou de uma view/agregação própria) —
-  o Misael vai decidir e implementar isso pessoalmente; não propor uma solução sem ele pedir.
+- **"Todos o sistema de dashboards deve trazer informações do sistema novo, deve se esquecer o sistema de
+  planilhas que já não está mais em uso."** Resolve a decisão em aberto de 09/11 sobre como o `/painel` leria do
+  Supabase: lê direto de `/api/os` + `/api/veiculos` (mesmos endpoints do sistema de OS), sem view nem agregação
+  própria no servidor — o cálculo é todo client-side em `public/js/kpis.js`.
+- **Apagado nessa decisão:** `api/dados.js`, `api/_lib/planilha.js`, `exemplo/dados_exemplo.json`,
+  `exemplo/usuarios_exemplo.json`, `scripts/gerar_exemplo.py`, `recortarPorPerfil`/`TABELAS` de
+  `api/_lib/acesso.js`, `SUBGRUPOS`/`EVENTOS_PNEU` de `public/js/sistema.js`, o botão "Demonstração" do `/painel`
+  (modo de exemplo separado — agora é o mesmo `exemplo: true` do sistema de OS). Isso também supera a restrição
+  de 30/10 "não mexer em `dashboard_web/`" especificamente quanto ao `/painel`: ela existia porque essa decisão
+  estava em aberto, e agora não está mais.
+- **`public/js/kpis.js` reescrito do zero** pra calcular em cima de OS (grupo, peça, valor_pecas/mao_obra/total,
+  notas[]) em vez de ITENS/NOTAS de nota fiscal com subgrupo e itemização. Consequência de modelo de dado: a aba
+  "Grupos de peças" perdeu o nível de subgrupo (achatou pra grupo + peça); "Pneus" perdeu nº de fogo/marca/medida
+  (virou lista simples de OS do grupo PNE); "Notas fiscais" perdeu a lista de itens por nota (cada nota agora é
+  só `{numero, fornecedor, valor, arquivo}`). Rankings (grupo, veículo, tipo) ordenam primeiro por **contagem de
+  OS**, não gasto — o valor da OS é opcional, nem toda OS tem gasto lançado.
+- **Nova aba "Reincidências e garantias"**: usa `relatorioReincidencias` (novo, em `public/js/os/regras.js`),
+  compartilhada entre `/os` e `/painel`. Cruza cada veículo com o próprio histórico pra achar peças que
+  repetiram em até 90 dias, separando **1ª troca** (quem fez o serviço que falhou) de **2ª troca** (quem
+  consertou de novo) — importante não confundir os dois ao ranquear por responsável.
 - **Leitura automática de NF** (XML/foto com IA): planejada e em stand-by, versão futura.
 - Diretoria (logins do dashboard) e e-mails/logins reais das filiais e mecânicos: depois da aprovação do cliente.
+- **Cuidado pra quem continuar:** `/api/os` sem filtro devolve no máximo as 3000 OS mais recentes
+  (`LIMITE_LISTA` em `api/os.js`). Enquanto a frota é pequena isso cobre tudo; quando passar de 3000 OS, "Todo o
+  período" e o histórico de reincidências do `/painel` passam a não cobrir mais as OS mais antigas, silenciosamente.

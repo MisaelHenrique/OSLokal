@@ -53,7 +53,7 @@ test('filial lança OS feita (interna, com mecânico); não lança de outra fili
   assert.equal(r.d.os.filial, 'LUÍS ANDRÉ');
   assert.equal(r.d.os.aberta_por, 'luis@lokal');
   assert.equal(r.d.os.direcionada_para, 'joao@lokal');
-  assert.deepEqual(r.d.os.auxiliares, ['pedro@lokal']);
+  assert.deepEqual(r.d.os.auxiliares, [], 'auxiliar foi removido do sistema — servidor ignora o que o cliente mandar');
   assert.deepEqual(r.d.os.pecas, ['FRE:Lonas:1º eixo · Direito']);
   assert.equal(r.d.os.grupo, 'FRE', 'grupo é derivado da 1ª dupla de peças, não mandado pelo cliente');
   idLancamento = r.d.os.id;
@@ -75,7 +75,7 @@ test('outra filial e mecânico (que não lançou) não veem a OS; mecânico vê 
   assert.equal((await chamar(os, { cookie: c.jose, url: '/api/os?id=' + idLancamento })).status, 404);
   assert.ok(!(await chamar(os, { cookie: c.jose })).d.os.some((o) => o.id === idLancamento));
   assert.equal((await chamar(os, { cookie: c.pedro, url: '/api/os?id=' + idLancamento })).status, 404,
-    'pedro é auxiliar mas quem lançou foi luis, então pedro não vê (regra: só vê o que o próprio mecânico lançou)');
+    'quem lançou foi luis, então pedro não vê (regra: só vê o que o próprio mecânico lançou)');
   const minhaDoLuis = await chamar(os, { cookie: c.luis, url: '/api/os?id=' + idLancamento });
   assert.equal(minhaDoLuis.status, 200);
   assert.equal(minhaDoLuis.d.os.valor_total, null, 'sem valores ainda');
@@ -85,7 +85,7 @@ test('mecânico lança a própria OS feita, sempre interna, no nome dele', async
   const f = await FOTOS_OK(c.joao, 'env-mec-001');
   const r = await post(c.joao, {
     acao: 'lancar', chassi: veiculoJose.chassi, pecas: ['CON:Óleos'], servico: 'Revisão: troca de óleo e filtros',
-    cidade: 'Caetité', tipo_local: 'GALPAO', auxiliares: ['pedro@lokal'], data_servico: hoje(), km: '50000',
+    cidade: 'Caetité', tipo_local: 'GALPAO', data_servico: hoje(), km: '50000',
     fotos: { frente: f.frente, painel: f.painel }, fotos_defeito: [f.defeito]
   });
   assert.equal(r.status, 200, JSON.stringify(r.d));
@@ -97,17 +97,6 @@ test('mecânico lança a própria OS feita, sempre interna, no nome dele', async
   assert.ok(lista.d.os.some((o) => o.id === r.d.os.id));
   assert.equal(lista.d.nomes, undefined, 'mecânico não recebe a lista de usuários');
   assert.equal(lista.d.mecanicos, undefined, 'mecânico não recebe a lista de mecânicos');
-});
-
-test('mecânico não lança mais de 3 auxiliares', async () => {
-  const f = await FOTOS_OK(c.joao, 'env-mec-aux');
-  const r = await post(c.joao, {
-    acao: 'lancar', chassi: veiculoJose.chassi, pecas: ['CON:Óleos'], servico: 'Revisão geral', cidade: 'Caetité',
-    tipo_local: 'GALPAO', auxiliares: ['pedro@lokal', 'marcos@lokal', 'rafael@lokal', 'bruno@lokal'],
-    data_servico: hoje(), km: '1', fotos: { frente: f.frente, painel: f.painel }, fotos_defeito: [f.defeito]
-  });
-  assert.equal(r.status, 400);
-  assert.match(r.d.erro, /no máximo 3/i);
 });
 
 test('matriz lança OS externa (oficina)', async () => {
@@ -143,14 +132,21 @@ test('matriz lança valores; filial vê e também lança; mecânico nunca vê', 
     cookie: c.matriz, binario: Buffer.from('%PDF-1.4'), tipo: 'application/pdf', headers: { 'x-lokal': '1' } });
   assert.equal(nf.status, 200, JSON.stringify(nf.d));
   const r = await post(c.matriz, { acao: 'valores', id: idLancamento, valor_pecas: '1.765,44', valor_mao_obra: '300',
-    valor_deslocamento: '120,50', nf_numero: '78', fornecedor: 'Auto Peças', nf_arquivo: nf.d.caminho });
+    valor_deslocamento: '120,50', notas: [{ numero: '78', fornecedor: 'Auto Peças', valor: '1.765,44', arquivo: nf.d.caminho }] });
   assert.equal(r.status, 200, JSON.stringify(r.d));
   assert.equal(r.d.os.status, 'FEITA', 'não existe mais etapa "fechada": o status não muda ao lançar valores');
   assert.equal(r.d.os.valor_total, 2185.94);
+  assert.equal(r.d.os.notas.length, 1);
+  assert.equal(r.d.os.notas[0].numero, '78');
+  assert.equal(r.d.os.notas[0].arquivo, nf.d.caminho);
   const filial = await chamar(os, { cookie: c.luis, url: '/api/os?id=' + idLancamento });
   assert.equal(filial.d.os.valor_total, 2185.94, 'filial vê valores da própria OS mesmo sem etapa de fechamento');
-  const r2 = await post(c.luis, { acao: 'valores', id: idLancamento, valor_pecas: '50' });
-  assert.equal(r2.status, 200, JSON.stringify(r2.d), 'filial também lança/edita valores');
+  const r2 = await post(c.matriz, { acao: 'valores', id: idLancamento, valor_pecas: '1.765,44', valor_mao_obra: '300',
+    valor_deslocamento: '120,50', notas: [{ numero: '78', fornecedor: 'Auto Peças', valor: '1.765,44', arquivo: nf.d.caminho }] });
+  assert.equal(r2.status, 200, JSON.stringify(r2.d), 'reenviar a mesma nota (sem trocar o arquivo) não quebra');
+  assert.equal(r2.d.os.notas[0].arquivo, nf.d.caminho, 'o caminho do arquivo já salvo se mantém');
+  const r3 = await post(c.luis, { acao: 'valores', id: idLancamento, valor_pecas: '50' });
+  assert.equal(r3.status, 200, JSON.stringify(r3.d), 'filial também lança/edita valores');
   assert.equal((await chamar(fotos, { cookie: c.luis, url: '/api/fotos?caminho=' + encodeURIComponent(nf.d.caminho) })).status, 200);
   const outraFilial = await post(c.jose, { acao: 'valores', id: idLancamento, valor_pecas: '1' });
   assert.equal(outraFilial.status, 404, 'OS não é da filial do josé');

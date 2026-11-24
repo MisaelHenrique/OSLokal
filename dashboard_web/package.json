@@ -10,7 +10,6 @@
   "scripts": {
     "dev": "node scripts/servidor_local.js",
     "test": "node --test",
-    "exemplo": "python scripts/gerar_exemplo.py",
     "frota": "node scripts/sistema_os.js frota",
     "exemplo-os": "node scripts/sistema_os.js exemplo",
     "limpar-exemplo": "node scripts/sistema_os.js limpar",

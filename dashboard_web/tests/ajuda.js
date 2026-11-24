@@ -12,7 +12,7 @@ export async function preparar() {
   delete process.env.SUPABASE_URL;
   process.env.LOKAL_DADOS_DIR = mkdtempSync(join(tmpdir(), 'lokal-'));
   const m = async (n) => (await import(`../api/${n}.js`)).default;
-  return { login: await m('login'), dados: await m('dados'), usuarios: await m('usuarios'), sessao: await m('sessao'),
+  return { login: await m('login'), usuarios: await m('usuarios'), sessao: await m('sessao'),
     senha: await m('senha'), os: await m('os'), fotos: await m('fotos'), veiculos: await m('veiculos') };
 }
 

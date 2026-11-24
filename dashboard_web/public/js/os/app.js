@@ -37,7 +37,7 @@ async function iniciar() {
   E.u = s.usuario;
   if (E.u.perfil === 'MECANICO') return location.replace('/os/mecanico');
   const extras = [
-    podeSolicitar(E.u) ? el('a', { class: 'botao', href: '#solicitar', text: 'Solicitar equipe itinerante' }) : null,
+    podeSolicitar(E.u) ? el('a', { class: 'botao', href: '#solicitar', text: 'Solicitar manutenção' }) : null,
     el('button', { class: 'botao fantasma', type: 'button', title: 'Atualizar', 'aria-label': 'Atualizar', text: '⟳',
       onclick: async () => { await carregar(); rota(); } })
   ];
@@ -147,7 +147,7 @@ async function telaNova(chassiInicial) {
       const { os } = await api.acaoOS('lancar', {
         chassi: d.chassi, data_servico: d.data_servico, cidade: d.cidade, pecas: d.pecas, servico: d.servico,
         tipo_local: d.tipo_local, execucao: d.execucao, mecanico: d.mecanico, oficina_externa: d.oficina_externa,
-        auxiliares: d.auxiliares, km: d.km, horimetro: d.horimetro, os_atendida: d.os_atendida, envio_id: envio, fotos, fotos_defeito
+        km: d.km, horimetro: d.horimetro, os_atendida: d.os_atendida, envio_id: envio, fotos, fotos_defeito
       });
       await carregar();
       location.hash = 'os/' + os.id;
@@ -177,7 +177,7 @@ async function telaSolicitar() {
   } }, [el('b', { text: TIPO_LOCAL[t] })]);
   const fotos = [campoFoto('Foto 1 (opcional)'), campoFoto('Foto 2'), campoFoto('Foto 3')];
   const msg = el('div', { class: 'mensagem erro largo', role: 'alert', hidden: true });
-  const enviar = el('button', { class: 'botao prim grande', type: 'submit', text: 'Solicitar equipe itinerante' });
+  const enviar = el('button', { class: 'botao prim grande', type: 'submit', text: 'Solicitar manutenção' });
   const form = el('form', { class: 'form-os', novalidate: true }, [
     busca.caixa,
     el('label', { class: 'campo largo' }, [el('span', { text: 'O que está acontecendo?' }), sintoma]),
@@ -204,11 +204,11 @@ async function telaSolicitar() {
       setTimeout(() => aviso(os.numero + ' solicitada. A matriz foi avisada.'), 50);
     } catch (e) {
       mensagem(msg, e.message);
-      enviar.disabled = false; enviar.textContent = 'Solicitar equipe itinerante';
+      enviar.disabled = false; enviar.textContent = 'Solicitar manutenção';
     }
   });
   conteudo(el('div', { class: 'trilha' }, [el('a', { href: '#', text: '← Ordens de serviço' })]),
-    el('section', { class: 'cartao' }, [el('div', { class: 'cartao-topo' }, el('h2', { text: 'Solicitar equipe itinerante' })), form]));
+    el('section', { class: 'cartao' }, [el('div', { class: 'cartao-topo' }, el('h2', { text: 'Solicitar manutenção' })), form]));
 }
 
 /**
@@ -301,12 +301,14 @@ async function telaOS(id) {
       ...(o.fotos_defeito || []).map((c, i) => fotoGuardada(c, 'Defeito ' + (i + 1)))])]));
   }
   if ('valor_total' in o) {
+    const notas = o.notas || [];
     secoes.push(cartao('Valores e nota fiscal', [dl([
       ['Peças', o.valor_pecas ? fmt.reais(o.valor_pecas) : ''], ['Mão de obra', o.valor_mao_obra ? fmt.reais(o.valor_mao_obra) : ''],
       ['Deslocamento / diária', o.valor_deslocamento ? fmt.reais(o.valor_deslocamento) : ''],
-      ['Total', o.valor_total ? el('b', { text: fmt.reais(o.valor_total) }) : 'Ainda não lançado'],
-      ['Nota fiscal', o.nf_numero], ['Fornecedor', o.fornecedor]]),
-    o.nf_arquivo ? el('div', { class: 'fotos' }, fotoGuardada(o.nf_arquivo, 'Arquivo da nota')) : null]));
+      ['Total', o.valor_total ? el('b', { text: fmt.reais(o.valor_total) }) : 'Ainda não lançado']]),
+    notas.length ? el('div', { class: 'blocos' }, notas.map((n) => el('div', { class: 'bloco-grupo' }, [
+      dl([['Nota fiscal', n.numero], ['Fornecedor', n.fornecedor], ['Valor', n.valor ? fmt.reais(n.valor) : '']]),
+      n.arquivo ? el('div', { class: 'fotos' }, fotoGuardada(n.arquivo, 'Arquivo da nota')) : null]))) : null]));
   }
   const ligadas = (d.ligadas || []).map((l) => el('a', { class: 'botao', href: '#os/' + l.id }, [
     l.papel === 'solicitacao' ? 'Atende a solicitação ' : 'Respondida por ', el('b', { text: l.numero }), ' · ', STATUS[l.status]]));
@@ -387,6 +389,39 @@ function bloco(titulo, texto, filhos, classe = '') {
   return el('div', { class: 'bloco ' + classe }, [el('h3', { text: titulo }), texto ? el('p', { class: 'dica', text: texto }) : null, ...filhos]);
 }
 
+/** Um bloco de nota fiscal dentro de "Valores e nota fiscal" (uma OS pode ter zero ou várias). */
+function blocoNota(dados, aoRemover) {
+  const campo = (rot, valorInicial, ph = '') => {
+    const i = el('input', { placeholder: ph, value: valorInicial ?? '' });
+    return [i, el('label', { class: 'campo' }, [el('span', { text: rot }), i])];
+  };
+  const [numero, cNum] = campo('Número', dados.numero, 'ex.: 1234');
+  const [fornecedor, cForn] = campo('Fornecedor', dados.fornecedor, 'ex.: Auto Peças Caetité');
+  const [valor, cValor] = campo('Valor (R$)', dados.valor, '0,00');
+  valor.inputMode = 'decimal';
+  const arq = el('input', { type: 'file', accept: 'application/pdf,image/*' });
+  const arquivoAtual = dados.arquivo || null;
+  const botaoRemover = el('button', { type: 'button', class: 'botao mini perigo', onclick: aoRemover, text: '✕' });
+  const titulo = el('span', { text: 'Nota fiscal' });
+  return {
+    titulo,
+    linha: el('div', { class: 'bloco-grupo' }, [
+      el('div', { class: 'bloco-grupo-topo' }, [el('div', { class: 'campo' }, [titulo]), botaoRemover]),
+      el('div', { class: 'tres' }, [cNum, cForn, cValor]),
+      el('label', { class: 'campo' }, [el('span', { text: 'Arquivo da nota (PDF ou foto, opcional)' }), arq]),
+      arquivoAtual ? el('div', { class: 'fotos' }, fotoGuardada(arquivoAtual, 'Arquivo da nota')) : null]),
+    async obter(os) {
+      let caminho = arquivoAtual;
+      const f = arq.files[0];
+      if (f) {
+        if (f.size > 4 * 1024 * 1024) throw new Error('O arquivo de uma nota passa de 4 MB. Envie uma foto ou um PDF menor.');
+        caminho = (await api.enviarArquivo({ tipo: 'nf', os: os.id, envio: idEnvio() }, f)).caminho;
+      }
+      return { numero: numero.value, fornecedor: fornecedor.value, valor: valor.value, arquivo: caminho };
+    }
+  };
+}
+
 function blocoValores(o, fazer, msg) {
   const campo = (rot, valorInicial, ph = '0,00') => {
     const i = el('input', { inputmode: 'decimal', placeholder: ph, value: valorInicial ?? '' });
@@ -394,32 +429,40 @@ function blocoValores(o, fazer, msg) {
   };
   const [pecas, cP] = campo('Peças (R$)', o.valor_pecas), [mao, cM] = campo('Mão de obra (R$)', o.valor_mao_obra),
     [desl, cD] = campo('Deslocamento / diária (R$, opcional)', o.valor_deslocamento);
-  const [nf, cN] = campo('Número da nota fiscal', o.nf_numero, 'ex.: 1234'), [forn, cF] = campo('Fornecedor', o.fornecedor, 'ex.: Auto Peças Caetité');
   const total = el('div', { class: 'total', text: 'Total: ' + (o.valor_total ? fmt.reais(o.valor_total) : '—') });
   const somar = () => {
     const v = [pecas, mao, desl].map((i) => lerNumero(i.value)).map((n) => (Number.isFinite(n) ? n : 0));
     total.textContent = 'Total: ' + fmt.reais(v[0] + v[1] + v[2]);
   };
   [pecas, mao, desl].forEach((i) => i.addEventListener('input', somar));
-  const arq = el('input', { type: 'file', accept: 'application/pdf,image/*' });
+
+  let notas = [];
+  const notasContainer = el('div', { class: 'blocos' });
+  const redesenharNotas = () => {
+    notas.forEach((n, i) => { n.titulo.textContent = notas.length > 1 ? 'Nota fiscal ' + (i + 1) : 'Nota fiscal'; });
+    notasContainer.replaceChildren(...notas.map((n) => n.linha));
+  };
+  const criarNota = (dados = {}) => {
+    const n = blocoNota(dados, () => { notas = notas.filter((x) => x !== n); redesenharNotas(); });
+    notas.push(n);
+  };
+  (o.notas || []).forEach(criarNota);
+  redesenharNotas();
+  const botaoAddNota = el('button', { type: 'button', class: 'botao mini', text: '+ Adicionar nota fiscal',
+    onclick: () => { criarNota(); redesenharNotas(); } });
+
   const b = el('button', { class: 'botao prim grande', type: 'button', text: 'Salvar valores' });
   b.addEventListener('click', async () => {
-    let caminho = '';
-    const f = arq.files[0];
-    if (f) {
-      if (f.size > 4 * 1024 * 1024) return mensagem(msg, 'O arquivo da nota passa de 4 MB. Envie uma foto ou um PDF menor.');
-      try {
-        b.disabled = true; b.textContent = 'Enviando a nota…';
-        caminho = (await api.enviarArquivo({ tipo: 'nf', os: o.id, envio: idEnvio() }, f)).caminho;
-      } catch (e) { b.disabled = false; b.textContent = 'Salvar valores'; return mensagem(msg, e.message); }
-      b.textContent = 'Salvar valores';
-    }
-    fazer(b, 'valores', { valor_pecas: pecas.value, valor_mao_obra: mao.value, valor_deslocamento: desl.value, nf_numero: nf.value,
-      fornecedor: forn.value, nf_arquivo: caminho });
+    b.disabled = true; b.textContent = 'Enviando…';
+    const listaNotas = [];
+    try {
+      for (const n of notas) listaNotas.push(await n.obter(o));
+    } catch (e) { b.disabled = false; b.textContent = 'Salvar valores'; return mensagem(msg, e.message); }
+    b.textContent = 'Salvar valores';
+    fazer(b, 'valores', { valor_pecas: pecas.value, valor_mao_obra: mao.value, valor_deslocamento: desl.value, notas: listaNotas });
   });
   return bloco('Valores e nota fiscal (opcional)', 'Pode preencher aos poucos; não bloqueia nem muda a etapa da OS.', [
-    el('div', { class: 'tres' }, [cP, cM, cD]), el('div', { class: 'tres' }, [cN, cF,
-      el('label', { class: 'campo' }, [el('span', { text: 'Arquivo da nota (PDF ou foto, opcional)' }), arq])]), total, b]);
+    el('div', { class: 'tres' }, [cP, cM, cD]), total, notasContainer, botaoAddNota, b]);
 }
 
 /** Corrige um lançamento errado (só a matriz). Não mexe em fotos nem em quem fez o serviço — pra isso, cancele e lance de novo. */
@@ -474,7 +517,7 @@ async function telaVeiculo(chassi) {
     el('td', { 'data-rotulo': 'Serviço feito' }, traco(o.servico)),
     el('td', { 'data-rotulo': 'Km/hor' }, kmHor(o)),
     el('td', { 'data-rotulo': 'Responsável' }, traco(quemFez(o))),
-    el('td', { 'data-rotulo': 'NF' }, traco(o.nf_numero)),
+    el('td', { 'data-rotulo': 'NF' }, traco((o.notas || []).map((n) => n.numero).filter(Boolean).join(', '))),
     el('td', { 'data-rotulo': 'Valor' }, o.valor_total ? fmt.reais(o.valor_total) : '—')
   ]);
   const tabela = el('table', { class: 'tabela-hist' }, [

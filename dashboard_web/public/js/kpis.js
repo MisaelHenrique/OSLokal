@@ -1,144 +1,73 @@
 // Todos os cálculos da dashboard. Funções puras (sem tela), testadas em tests/kpis.test.js.
-// Gasto = soma de custo_total dos ITENS (peças + mão de obra). Fase 1: sem km, horímetro nem datas de parada.
+// Fonte: o sistema de OS (Supabase) — cada OS é um serviço, com valores opcionais (sem itemização por nota).
+// Só a OS com status FEITA entra nos números de peças/valores (solicitada/cancelada ficam de fora).
 
-const n = (v) => {
-  if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
-  const s = String(v ?? '').trim();
-  if (!s) return 0;
-  // aceita 1765.44 e 1.765,44
-  const x = s.includes(',') ? Number(s.replace(/\./g, '').replace(',', '.')) : Number(s);
-  return Number.isFinite(x) ? x : 0;
-};
+const n = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
 
 export const mesDe = (data) => String(data || '').slice(0, 7);
 
-/** Junta nota e veículo em cada item, para filtrar e agrupar sem procurar de novo. */
-export function prepararBase(dados) {
-  const veic = new Map();
-  (dados.veiculos || []).forEach((v) => veic.set(v.filial + '|' + v.placa, v));
-  const notas = new Map();
-  (dados.notas || []).forEach((nt) => notas.set(nt.filial + '|' + nt.id_nota, nt));
-  const itens = (dados.itens || []).map((it) => {
-    const nt = notas.get(it.filial + '|' + it.id_nota) || {};
-    const placa = it.placa || nt.placa || '';
-    const v = veic.get(it.filial + '|' + placa) || {};
-    const pecas = n(it.custo_pecas), mo = n(it.custo_mao_de_obra);
-    const total = it.custo_total === '' || it.custo_total == null ? pecas + mo : n(it.custo_total);
-    return {
-      filial: it.filial, id_nota: it.id_nota, chave_nota: it.filial + '|' + it.id_nota, placa,
-      grupo: String(it.cod_grupo || '').toUpperCase() || 'SEM', subgrupo: it.cod_subgrupo || '', peca: it.peca || '',
-      descricao: it.descricao_servico || '', qtd: n(it.qtd), pecas, mo, total,
-      emissao: String(nt.emissao || '').slice(0, 10), mes: mesDe(nt.emissao), nf: nt.nf || '',
-      fornecedor: String(nt.fornecedor || '').trim() || '(sem fornecedor)', interna: nt.interna_ou_terceiro || '',
-      tipo: v.tipo_implemento || '(sem cadastro)', modelo: v.marca_modelo || '(sem cadastro)',
-      evento_pneu: it.evento_pneu || '', posicao_pneu: it.posicao_pneu || '', num_fogo: it.num_fogo || '',
-      marca_pneu: it.marca_pneu || '', medida_pneu: it.medida_pneu || '', motivo_retirada: it.motivo_retirada || ''
-    };
-  });
-  const meses = [...new Set(itens.map((i) => i.mes).filter(Boolean))].sort();
-  return {
-    itens,
-    notas: dados.notas || [],
-    veiculos: dados.veiculos || [],
-    filiais: (dados.filiais || []).map((f) => f.filial),
-    erros: dados.erros || [],
-    meses,
-    origem: dados.origem || '',
-    ultima_juncao: dados.ultima_juncao || '',
-    buscado_em: dados.buscado_em || ''
-  };
+function feitas(osList) {
+  return osList.filter((o) => o.status === 'FEITA');
 }
 
 /** Filtros: { de: 'aaaa-mm', ate: 'aaaa-mm', filial, tipo, grupo, placa }. Campo vazio = todos. */
-export function filtrar(itens, f = {}) {
-  return itens.filter((i) =>
-    (!f.de || i.mes >= f.de) &&
-    (!f.ate || i.mes <= f.ate) &&
-    (!f.filial || i.filial === f.filial) &&
-    (!f.tipo || i.tipo === f.tipo) &&
-    (!f.grupo || i.grupo === f.grupo) &&
-    (!f.placa || i.placa === f.placa));
+export function filtrar(osList, veiculos, f = {}) {
+  const tipoPorChassi = new Map(veiculos.map((v) => [v.chassi, v.tipo]));
+  return osList.filter((o) =>
+    (!f.de || mesDe(o.data_servico) >= f.de) &&
+    (!f.ate || mesDe(o.data_servico) <= f.ate) &&
+    (!f.filial || o.filial === f.filial) &&
+    (!f.tipo || tipoPorChassi.get(o.chassi) === f.tipo) &&
+    (!f.grupo || o.grupo === f.grupo) &&
+    (!f.placa || o.placa === f.placa));
 }
 
-/** Frota no filtro (para custo médio por veículo da frota). Ignora situação BAIXADO. */
+/** Frota no filtro (para custo médio por veículo da frota). O cadastro já só traz veículos ativos. */
 export function frotaNoFiltro(veiculos, f = {}) {
-  return veiculos.filter((v) => v.situacao !== 'BAIXADO' &&
-    (!f.filial || v.filial === f.filial) && (!f.tipo || v.tipo_implemento === f.tipo) && (!f.placa || v.placa === f.placa));
+  return veiculos.filter((v) => (!f.filial || v.filial === f.filial) && (!f.tipo || v.tipo === f.tipo) && (!f.placa || v.placa === f.placa));
 }
 
-export function resumo(itens) {
-  let total = 0, pecas = 0, mo = 0;
-  const notas = new Set(), veic = new Set();
-  itens.forEach((i) => {
-    total += i.total; pecas += i.pecas; mo += i.mo;
-    notas.add(i.chave_nota);
-    if (i.placa) veic.add(i.filial + '|' + i.placa);
+/**
+ * Resumo do período. `comValor` conta quantas OS já têm valor lançado (opcional no sistema de OS) — "ticket" e
+ * "porVeiculo" dividem só pelo que tem valor (OS ou veículo), pra não diluir a média com OS ainda sem valor.
+ */
+export function resumo(osList) {
+  const os = feitas(osList);
+  let total = 0, pecas = 0, mo = 0, comValor = 0;
+  const veic = new Set(), veicComValor = new Set();
+  os.forEach((o) => {
+    if (o.valor_total) { total += n(o.valor_total); pecas += n(o.valor_pecas); mo += n(o.valor_mao_obra); comValor++; if (o.chassi) veicComValor.add(o.chassi); }
+    if (o.chassi) veic.add(o.chassi);
   });
   return {
-    total, pecas, mo,
-    notas: notas.size,
-    itens: itens.length,
-    veiculos: veic.size,
-    ticket: notas.size ? total / notas.size : null,
-    porVeiculo: veic.size ? total / veic.size : null,
+    total, pecas, mo, os: os.length, comValor, veiculos: veic.size, veiculosComValor: veicComValor.size,
+    ticket: comValor ? total / comValor : null,
+    porVeiculo: veicComValor.size ? total / veicComValor.size : null,
     pctPecas: pecas + mo ? pecas / (pecas + mo) : null,
     pctMo: pecas + mo ? mo / (pecas + mo) : null
   };
 }
 
-/** Agrupa por uma chave e devolve [{ chave, total, pecas, mo, itens, qtd, notas, veiculos, pct }] do maior para o menor. */
-export function agrupar(itens, chaveFn) {
+/**
+ * Agrupa as OS feitas por uma chave. `os` (contagem) é a métrica principal — sempre presente; `total` (gasto)
+ * só soma quem já tem valor lançado, então pode ficar bem menor que a realidade enquanto o lançamento de
+ * valores não for hábito. Ordena por contagem, depois gasto, do maior para o menor.
+ */
+export function agrupar(osList, chaveFn) {
+  const os = feitas(osList);
   const m = new Map();
   let geral = 0;
-  itens.forEach((i) => {
-    const k = chaveFn(i);
+  os.forEach((o) => {
+    const k = chaveFn(o);
     if (k === null || k === undefined || k === '') return;
     let g = m.get(k);
-    if (!g) { g = { chave: k, total: 0, pecas: 0, mo: 0, itens: 0, qtd: 0, _n: new Set(), _v: new Set() }; m.set(k, g); }
-    g.total += i.total; g.pecas += i.pecas; g.mo += i.mo; g.itens++; g.qtd += i.qtd;
-    g._n.add(i.chave_nota); if (i.placa) g._v.add(i.filial + '|' + i.placa);
-    geral += i.total;
+    if (!g) { g = { chave: k, total: 0, os: 0, comValor: 0, _v: new Set() }; m.set(k, g); }
+    if (o.valor_total) { g.total += n(o.valor_total); g.comValor++; geral += n(o.valor_total); }
+    g.os++;
+    if (o.chassi) g._v.add(o.chassi);
   });
-  return [...m.values()].map((g) => ({
-    chave: g.chave, total: g.total, pecas: g.pecas, mo: g.mo, itens: g.itens, qtd: g.qtd,
-    notas: g._n.size, veiculos: g._v.size, pct: geral ? g.total / geral : 0
-  })).sort((a, b) => b.total - a.total || String(a.chave).localeCompare(String(b.chave)));
-}
-
-const diasEntre = (a, b) => Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000);
-
-/**
- * Reincidência: o mesmo veículo recebendo o mesmo subgrupo de peça de novo dentro de `janelaDias` do
- * lançamento anterior (subgrupo, não peça exata — texto livre varia de grafia). Conta ocorrências (um
- * subgrupo que volta 3x em 30 dias cada conta 2), não pares veículo+subgrupo. Itens sem subgrupo ou sem
- * data de emissão ficam de fora; só compara dentro do conjunto de itens recebido (normalmente já filtrado).
- */
-export function reincidencias(itens, janelaDias = 30) {
-  const porChave = new Map();
-  itens.forEach((i) => {
-    if (!i.subgrupo || !i.emissao || !i.placa) return;
-    const k = i.filial + '|' + i.placa + '|' + i.subgrupo;
-    let lista = porChave.get(k);
-    if (!lista) { lista = []; porChave.set(k, lista); }
-    lista.push(i);
-  });
-  let total = 0;
-  const veiculos = new Set();
-  const detalhes = [];
-  porChave.forEach((lista) => {
-    lista.sort((a, b) => a.emissao.localeCompare(b.emissao));
-    for (let i = 1; i < lista.length; i++) {
-      const dias = diasEntre(lista[i - 1].emissao, lista[i].emissao);
-      if (dias >= 0 && dias <= janelaDias) {
-        total++;
-        veiculos.add(lista[i].filial + '|' + lista[i].placa);
-        detalhes.push({ filial: lista[i].filial, placa: lista[i].placa, subgrupo: lista[i].subgrupo, dias,
-          emissaoAnterior: lista[i - 1].emissao, emissao: lista[i].emissao });
-      }
-    }
-  });
-  detalhes.sort((a, b) => b.emissao.localeCompare(a.emissao));
-  return { total, veiculos: veiculos.size, janelaDias, detalhes };
+  return [...m.values()].map((g) => ({ chave: g.chave, total: g.total, os: g.os, comValor: g.comValor, veiculos: g._v.size, pct: geral ? g.total / geral : 0 }))
+    .sort((a, b) => b.os - a.os || b.total - a.total || String(a.chave).localeCompare(String(b.chave)));
 }
 
 /** Meses de 'de' até 'ate', inclusive (aaaa-mm). */
@@ -173,75 +102,91 @@ export function periodoAnterior(de, ate) {
 export const variacao = (atual, antes) => (antes ? (atual - antes) / antes : null);
 
 /**
- * Série mensal empilhada pelos `topo` grupos de maior gasto no período; o resto vira "Outros".
- * Volta { meses, series: [{ chave, valores[] }] } com séries em ordem fixa (maior gasto primeiro, Outros por último).
+ * Série mensal empilhada pelos `topo` grupos de maior GASTO no período (não contagem de OS — é um gráfico de
+ * gasto); o resto vira "Outros". Só soma OS com valor lançado. Volta { meses, series: [{ chave, valores[] }] },
+ * maior gasto primeiro, Outros por último.
  */
-export function serieMensal(itens, meses, chaveFn, topo = 5) {
-  const ranking = agrupar(itens, chaveFn).map((g) => g.chave);
+export function serieMensal(osList, meses, chaveFn, topo = 5) {
+  const os = feitas(osList).filter((o) => o.valor_total);
+  const porChave = new Map();
+  os.forEach((o) => {
+    const k = chaveFn(o);
+    if (k === null || k === undefined || k === '') return;
+    porChave.set(k, (porChave.get(k) || 0) + n(o.valor_total));
+  });
+  const ranking = [...porChave.entries()].sort((a, b) => b[1] - a[1]).map(([k]) => k);
   const principais = ranking.slice(0, topo);
   const temOutros = ranking.length > topo;
   const idx = new Map(meses.map((m, i) => [m, i]));
   const series = principais.map((c) => ({ chave: c, valores: meses.map(() => 0) }));
   const outros = { chave: 'Outros', valores: meses.map(() => 0) };
-  itens.forEach((i) => {
-    const p = idx.get(i.mes);
+  os.forEach((o) => {
+    const p = idx.get(mesDe(o.data_servico));
     if (p === undefined) return;
-    const s = series.find((x) => x.chave === chaveFn(i));
-    (s || outros).valores[p] += i.total;
+    const s = series.find((x) => x.chave === chaveFn(o));
+    (s || outros).valores[p] += n(o.valor_total);
   });
   if (temOutros) series.push(outros);
   return { meses, series };
 }
 
-/** Matriz tipo de veículo × grupo: % do gasto de cada tipo em cada grupo. */
-export function matrizTipoGrupo(itens, grupos) {
-  const porTipo = agrupar(itens, (i) => i.tipo);
+/** Matriz tipo de veículo × grupo: % das OS de cada tipo em cada grupo (contagem, não gasto — sempre disponível). */
+export function matrizTipoGrupo(osList, veiculos, grupos) {
+  const os = feitas(osList);
+  const tipoPorChassi = new Map(veiculos.map((v) => [v.chassi, v.tipo]));
+  const comTipo = os.map((o) => ({ ...o, tipo: tipoPorChassi.get(o.chassi) || '(sem cadastro)' }));
+  const porTipo = agrupar(comTipo, (o) => o.tipo);
   return porTipo.map((t) => {
-    const doTipo = itens.filter((i) => i.tipo === t.chave);
-    const g = new Map(agrupar(doTipo, (i) => i.grupo).map((x) => [x.chave, x]));
-    return { tipo: t.chave, total: t.total, veiculos: t.veiculos, celulas: grupos.map((c) => ({ grupo: c, pct: g.get(c)?.pct || 0, total: g.get(c)?.total || 0 })) };
+    const doTipo = comTipo.filter((o) => o.tipo === t.chave);
+    const g = new Map(agrupar(doTipo, (o) => o.grupo).map((x) => [x.chave, x]));
+    return {
+      tipo: t.chave, os: t.os, veiculos: t.veiculos,
+      celulas: grupos.map((c) => ({ grupo: c, pct: t.os ? (g.get(c)?.os || 0) / t.os : 0, os: g.get(c)?.os || 0 }))
+    };
   });
 }
 
-/** Indicadores de pneus (grupo PNE): por evento, marca, medida e motivo de retirada. */
-export function pneus(itens) {
-  const p = itens.filter((i) => i.grupo === 'PNE');
-  return {
-    resumo: resumo(p),
-    porSubgrupo: agrupar(p, (i) => i.subgrupo),
-    porMarca: agrupar(p, (i) => i.marca_pneu || null),
-    porMedida: agrupar(p, (i) => i.medida_pneu || null),
-    porMotivo: agrupar(p, (i) => i.motivo_retirada || null),
-    porVeiculo: agrupar(p, (i) => i.placa || null),
-    fogos: new Set(p.map((i) => i.num_fogo).filter(Boolean)).size
-  };
-}
-
-/** Notas do filtro com os itens dentro, da mais recente para a mais antiga. */
-export function notasDoFiltro(itens) {
+/** Oficinas externas que mais fizeram serviço (execução EXTERNA). */
+export function porOficinaExterna(osList) {
+  const os = feitas(osList).filter((o) => o.execucao === 'EXTERNA' && o.oficina_externa);
   const m = new Map();
-  itens.forEach((i) => {
-    let nt = m.get(i.chave_nota);
-    if (!nt) {
-      nt = { chave: i.chave_nota, filial: i.filial, id_nota: i.id_nota, nf: i.nf, emissao: i.emissao, fornecedor: i.fornecedor,
-        placa: i.placa, tipo: i.tipo, modelo: i.modelo, total: 0, itens: [] };
-      m.set(i.chave_nota, nt);
-    }
-    nt.total += i.total;
-    nt.itens.push(i);
+  os.forEach((o) => {
+    let g = m.get(o.oficina_externa);
+    if (!g) { g = { chave: o.oficina_externa, os: 0, total: 0 }; m.set(o.oficina_externa, g); }
+    g.os++; if (o.valor_total) g.total += n(o.valor_total);
   });
-  return [...m.values()].sort((a, b) => (b.emissao || '').localeCompare(a.emissao || '') || String(b.nf).localeCompare(String(a.nf)));
+  return [...m.values()].sort((a, b) => b.os - a.os || b.total - a.total);
+}
+
+/** Fornecedores que mais aparecem nas notas fiscais lançadas nas OS. */
+export function porFornecedorNota(osList) {
+  const m = new Map();
+  feitas(osList).forEach((o) => (o.notas || []).forEach((nt) => {
+    const chave = (nt.fornecedor || '').trim() || '(sem fornecedor)';
+    let g = m.get(chave);
+    if (!g) { g = { chave, notas: 0, total: 0 }; m.set(chave, g); }
+    g.notas++; if (nt.valor) g.total += n(nt.valor);
+  }));
+  return [...m.values()].sort((a, b) => b.notas - a.notas || b.total - a.total);
+}
+
+/** Notas fiscais lançadas nas OS, da mais recente para a mais antiga (uma linha por nota, sem itens). */
+export function listaNotas(osList) {
+  const linhas = [];
+  feitas(osList).forEach((o) => (o.notas || []).forEach((nt) => {
+    linhas.push({ osId: o.id, placa: o.placa, veiculo: o.veiculo, filial: o.filial, data_servico: o.data_servico,
+      numero: nt.numero || '', fornecedor: nt.fornecedor || '', valor: nt.valor, arquivo: nt.arquivo || null });
+  }));
+  return linhas.sort((a, b) => (b.data_servico || '').localeCompare(a.data_servico || ''));
 }
 
 /** CSV com ; e vírgula decimal (abre direto no Excel em português). */
-export function csvItens(itens, nomesGrupo = {}) {
-  const cab = ['filial', 'nf', 'emissao', 'fornecedor', 'placa', 'tipo', 'modelo', 'grupo', 'nome_grupo', 'subgrupo', 'peca',
-    'descricao', 'qtd', 'custo_pecas', 'custo_mao_de_obra', 'custo_total'];
+export function csvNotas(notas) {
+  const cab = ['placa', 'veiculo', 'filial', 'data_servico', 'numero_nota', 'fornecedor', 'valor'];
   const esc = (v) => {
     const s = typeof v === 'number' ? String(Math.round(v * 100) / 100).replace('.', ',') : String(v ?? '');
     return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
   };
-  const linhas = itens.map((i) => [i.filial, i.nf, i.emissao, i.fornecedor, i.placa, i.tipo, i.modelo, i.grupo,
-    nomesGrupo[i.grupo] || '', i.subgrupo, i.peca, i.descricao, i.qtd, i.pecas, i.mo, i.total].map(esc).join(';'));
+  const linhas = notas.map((nt) => [nt.placa, nt.veiculo, nt.filial, nt.data_servico, nt.numero, nt.fornecedor, nt.valor].map(esc).join(';'));
   return '﻿' + [cab.join(';')].concat(linhas).join('\r\n');
 }

@@ -209,7 +209,7 @@ async function telaNova() {
       const item = {
         id: idEnvio(), criado_em: new Date().toISOString(), estado: 'pendente', erro: '', caminhos: {},
         dados: { chassi: d.chassi, pecas: d.pecas, servico: d.servico, cidade: d.cidade, tipo_local: d.tipo_local,
-          data_servico: d.data_servico, km: d.km, horimetro: d.horimetro, auxiliares: d.auxiliares, os_atendida: d.os_atendida },
+          data_servico: d.data_servico, km: d.km, horimetro: d.horimetro, os_atendida: d.os_atendida },
         fotos: { frente: d.fotoFrente, painel: d.fotoPainel, defeito: d.fotosDefeito }
       };
       await Fila.adicionar(item);

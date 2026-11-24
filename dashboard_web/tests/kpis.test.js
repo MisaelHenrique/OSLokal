@@ -2,65 +2,59 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as K from '../public/js/kpis.js';
 
-const dados = {
-  filiais: [{ filial: 'MATRIZ' }, { filial: 'LUÍS ANDRÉ' }],
-  veiculos: [
-    { filial: 'MATRIZ', placa: 'AAA-1111', tipo_implemento: 'PIPA', marca_modelo: 'VW 26.280', situacao: 'ATIVO' },
-    { filial: 'MATRIZ', placa: 'BBB-2222', tipo_implemento: 'MUNCK', marca_modelo: 'VW 27.320', situacao: 'ATIVO' },
-    { filial: 'LUÍS ANDRÉ', placa: 'CCC-3333', tipo_implemento: 'PIPA', marca_modelo: 'MB 2729', situacao: 'BAIXADO' }
-  ],
-  notas: [
-    { filial: 'MATRIZ', id_nota: 'N1', nf: '10', emissao: '2026-09-05', fornecedor: 'OFICINA X', interna_ou_terceiro: 'TERCEIRO', placa: 'AAA-1111' },
-    { filial: 'MATRIZ', id_nota: 'N2', nf: '11', emissao: '2026-10-01', fornecedor: 'OFICINA Y', interna_ou_terceiro: 'INTERNA', placa: 'BBB-2222' },
-    { filial: 'LUÍS ANDRÉ', id_nota: 'N1', nf: '50', emissao: '2026-10-10', fornecedor: 'OFICINA X', interna_ou_terceiro: 'TERCEIRO', placa: 'CCC-3333' }
-  ],
-  itens: [
-    { filial: 'MATRIZ', id_nota: 'N1', placa: 'AAA-1111', cod_grupo: 'FRE', cod_subgrupo: 'FRE-LON', peca: 'lona', qtd: 4, custo_pecas: 800, custo_mao_de_obra: 200, custo_total: 1000 },
-    { filial: 'MATRIZ', id_nota: 'N1', placa: 'AAA-1111', cod_grupo: 'PNE', cod_subgrupo: 'PNE-NOV', peca: 'pneu', qtd: 2, custo_pecas: '1.765,44', custo_mao_de_obra: 0, custo_total: '' },
-    { filial: 'MATRIZ', id_nota: 'N2', placa: 'BBB-2222', cod_grupo: 'HID', cod_subgrupo: 'HID-BOM', peca: 'bomba', qtd: 1, custo_pecas: 3000, custo_mao_de_obra: 500, custo_total: 3500 },
-    { filial: 'LUÍS ANDRÉ', id_nota: 'N1', placa: 'CCC-3333', cod_grupo: 'FRE', cod_subgrupo: 'FRE-LON', peca: 'lona', qtd: 2, custo_pecas: 400, custo_mao_de_obra: 100, custo_total: 500 }
-  ]
-};
-const base = K.prepararBase(dados);
+const veiculos = [
+  { chassi: 'C1', placa: 'AAA-1111', filial: 'MATRIZ', tipo: 'PIPA' },
+  { chassi: 'C2', placa: 'BBB-2222', filial: 'MATRIZ', tipo: 'MUNCK' },
+  { chassi: 'C3', placa: 'CCC-3333', filial: 'LUÍS ANDRÉ', tipo: 'PIPA' }
+];
+const osList = [
+  { id: 1, status: 'FEITA', chassi: 'C1', placa: 'AAA-1111', veiculo: 'PIPA X', filial: 'MATRIZ', grupo: 'FRE',
+    data_servico: '2026-09-05', valor_pecas: 800, valor_mao_obra: 200, valor_total: 1000, execucao: 'INTERNA', notas: [] },
+  { id: 2, status: 'FEITA', chassi: 'C1', placa: 'AAA-1111', veiculo: 'PIPA X', filial: 'MATRIZ', grupo: 'PNE',
+    data_servico: '2026-09-10', valor_pecas: 1765.44, valor_mao_obra: 0, valor_total: 1765.44, execucao: 'INTERNA', notas: [] },
+  { id: 3, status: 'FEITA', chassi: 'C2', placa: 'BBB-2222', veiculo: 'MUNCK Y', filial: 'MATRIZ', grupo: 'HID',
+    data_servico: '2026-10-01', valor_pecas: 3000, valor_mao_obra: 500, valor_total: 3500, execucao: 'EXTERNA', oficina_externa: 'OFICINA Y',
+    notas: [{ numero: '11', fornecedor: 'OFICINA Y', valor: 3500 }] },
+  { id: 4, status: 'FEITA', chassi: 'C3', placa: 'CCC-3333', veiculo: 'PIPA Z', filial: 'LUÍS ANDRÉ', grupo: 'FRE',
+    data_servico: '2026-10-10', valor_pecas: 400, valor_mao_obra: 100, valor_total: 500, execucao: 'INTERNA', notas: [] },
+  { id: 5, status: 'FEITA', chassi: 'C1', placa: 'AAA-1111', veiculo: 'PIPA X', filial: 'MATRIZ', grupo: 'MOT',
+    data_servico: '2026-10-15', valor_pecas: null, valor_mao_obra: null, valor_total: null, execucao: 'INTERNA', notas: [] }, // sem valor lançado ainda
+  { id: 6, status: 'SOLICITADA', chassi: 'C2', placa: 'BBB-2222', veiculo: 'MUNCK Y', filial: 'MATRIZ', grupo: '',
+    data_servico: null, notas: [] }
+];
 
-test('prepararBase junta nota e veículo e lê número em pt-BR', () => {
-  const pneu = base.itens.find((i) => i.grupo === 'PNE');
-  assert.equal(pneu.pecas, 1765.44);
-  assert.equal(pneu.total, 1765.44, 'custo_total vazio = peças + mão de obra');
-  assert.equal(pneu.tipo, 'PIPA');
-  assert.equal(pneu.mes, '2026-09');
-  assert.deepEqual(base.meses, ['2026-09', '2026-10']);
+test('filtros por período, filial, tipo, grupo e placa (ignora o que não é FEITA via resumo/agrupar)', () => {
+  assert.equal(K.filtrar(osList, veiculos, { de: '2026-10', ate: '2026-10' }).length, 3);
+  assert.equal(K.filtrar(osList, veiculos, { filial: 'MATRIZ' }).length, 5);
+  assert.equal(K.filtrar(osList, veiculos, { tipo: 'PIPA' }).length, 4);
+  assert.equal(K.filtrar(osList, veiculos, { grupo: 'FRE' }).length, 2);
+  assert.equal(K.filtrar(osList, veiculos, { placa: 'BBB-2222' }).length, 2);
 });
 
-test('id_nota igual em filiais diferentes não se mistura', () => {
-  const r = K.resumo(base.itens);
-  assert.equal(r.notas, 3);
-  assert.equal(r.veiculos, 3);
+test('resumo: só OS FEITA entra, ticket e custo por veículo dividem só por quem já tem valor lançado', () => {
+  const r = K.resumo(osList);
+  assert.equal(r.os, 5, 'as 5 FEITA, a SOLICITADA fica de fora');
+  assert.equal(r.comValor, 4, 'a OS 5 não tem valor lançado ainda');
   assert.equal(Math.round(r.total * 100) / 100, 6765.44);
-});
-
-test('filtros por período, filial, tipo, grupo e placa', () => {
-  assert.equal(K.filtrar(base.itens, { de: '2026-10', ate: '2026-10' }).length, 2);
-  assert.equal(K.filtrar(base.itens, { filial: 'MATRIZ' }).length, 3);
-  assert.equal(K.filtrar(base.itens, { tipo: 'PIPA' }).length, 3);
-  assert.equal(K.filtrar(base.itens, { grupo: 'FRE' }).length, 2);
-  assert.equal(K.filtrar(base.itens, { placa: 'BBB-2222' }).length, 1);
-});
-
-test('resumo: ticket, custo por veículo, peças × mão de obra', () => {
-  const r = K.resumo(K.filtrar(base.itens, { filial: 'MATRIZ' }));
-  assert.equal(r.notas, 2);
-  assert.equal(Math.round(r.ticket * 100) / 100, Math.round((6265.44 / 2) * 100) / 100);
-  assert.equal(Math.round(r.porVeiculo * 100) / 100, Math.round((6265.44 / 2) * 100) / 100);
+  assert.equal(Math.round(r.ticket * 100) / 100, Math.round((6765.44 / 4) * 100) / 100);
+  assert.equal(r.veiculos, 3);
   assert.ok(Math.abs(r.pctPecas + r.pctMo - 1) < 1e-9);
-  assert.equal(K.resumo([]).ticket, null, 'sem notas não divide por zero');
+  assert.equal(K.resumo([]).ticket, null, 'sem OS não divide por zero');
+
+  // veículo que só tem OS sem valor lançado não entra no denominador de "custo por veículo"
+  const comVeiculoSemValor = [...osList, { id: 7, status: 'FEITA', chassi: 'C4', placa: 'DDD-4444', veiculo: 'PIPA W',
+    filial: 'MATRIZ', grupo: 'MOT', data_servico: '2026-10-20', valor_pecas: null, valor_mao_obra: null, valor_total: null }];
+  const r2 = K.resumo(comVeiculoSemValor);
+  assert.equal(r2.veiculos, 4, 'C4 conta como veículo atendido');
+  assert.equal(r2.veiculosComValor, 3, 'mas C4 não tem valor lançado, então não entra no custo por veículo');
+  assert.equal(r2.porVeiculo, r.porVeiculo, 'custo por veículo não muda ao entrar um veículo sem valor lançado');
 });
 
-test('agrupar ordena do maior para o menor e soma 100%', () => {
-  const g = K.agrupar(base.itens, (i) => i.grupo);
-  assert.deepEqual(g.map((x) => x.chave), ['HID', 'PNE', 'FRE']);
+test('agrupar ordena por contagem de OS primeiro (gasto é opcional), depois por gasto', () => {
+  const g = K.agrupar(osList, (o) => o.grupo);
+  assert.equal(g.find((x) => x.chave === 'FRE').os, 2, 'FRE tem 2 OS (vence por contagem mesmo com menos gasto)');
+  assert.equal(g[0].chave, 'FRE');
   assert.ok(Math.abs(g.reduce((s, x) => s + x.pct, 0) - 1) < 1e-9);
-  assert.equal(g.find((x) => x.chave === 'FRE').notas, 2);
 });
 
 test('meses, período anterior e variação', () => {
@@ -71,62 +65,42 @@ test('meses, período anterior e variação', () => {
   assert.equal(K.variacao(10, 0), null);
 });
 
-test('série mensal: top N + Outros, ordem fixa', () => {
-  const s = K.serieMensal(base.itens, ['2026-09', '2026-10'], (i) => i.grupo, 2);
+test('série mensal: top N por GASTO (não por contagem de OS) + Outros, só soma quem tem valor', () => {
+  const s = K.serieMensal(osList, ['2026-09', '2026-10'], (o) => o.grupo, 2);
+  // é um gráfico de gasto: HID (3500, 1 OS) vem antes de FRE (1500, 2 OS) — contagem não manda aqui
   assert.deepEqual(s.series.map((x) => x.chave), ['HID', 'PNE', 'Outros']);
   assert.deepEqual(s.series[0].valores, [0, 3500]);
-  assert.deepEqual(s.series[2].valores, [1000, 500]);
+  assert.deepEqual(s.series[1].valores, [1765.44, 0]);
+  assert.deepEqual(s.series[2].valores, [1000, 500], 'FRE (1500) foi pro "Outros" por ter o menor gasto dos 3');
 });
 
-test('frota no filtro ignora baixados', () => {
-  assert.equal(K.frotaNoFiltro(base.veiculos, {}).length, 2);
-  assert.equal(K.frotaNoFiltro(base.veiculos, { tipo: 'PIPA' }).length, 1);
+test('frota no filtro', () => {
+  assert.equal(K.frotaNoFiltro(veiculos, {}).length, 3);
+  assert.equal(K.frotaNoFiltro(veiculos, { tipo: 'PIPA' }).length, 2);
 });
 
-test('pneus e notas do filtro', () => {
-  const p = K.pneus(base.itens);
-  assert.equal(p.resumo.itens, 1);
-  const n = K.notasDoFiltro(base.itens);
-  assert.equal(n.length, 3);
-  assert.equal(n[0].emissao, '2026-10-10');
-  assert.equal(n.find((x) => x.chave === 'MATRIZ|N1').itens.length, 2);
+test('matriz tipo × grupo: % por contagem de OS, não gasto', () => {
+  const m = K.matrizTipoGrupo(osList, veiculos, ['FRE', 'PNE', 'HID', 'MOT']);
+  const pipa = m.find((t) => t.tipo === 'PIPA');
+  assert.equal(pipa.os, 4); // C1 (3 OS) + C3 (1 OS)
+  assert.equal(pipa.celulas.find((c) => c.grupo === 'FRE').os, 2);
 });
 
-test('reincidências: mesmo veículo + subgrupo dentro da janela', () => {
-  const base2 = K.prepararBase({
-    filiais: [{ filial: 'MATRIZ' }],
-    veiculos: [{ filial: 'MATRIZ', placa: 'AAA-1111', tipo_implemento: 'PIPA', marca_modelo: 'VW', situacao: 'ATIVO' }],
-    notas: [
-      { filial: 'MATRIZ', id_nota: 'N1', nf: '1', emissao: '2026-01-01', placa: 'AAA-1111' },
-      { filial: 'MATRIZ', id_nota: 'N2', nf: '2', emissao: '2026-01-20', placa: 'AAA-1111' },   // 19 dias depois: reincide em 30
-      { filial: 'MATRIZ', id_nota: 'N3', nf: '3', emissao: '2026-03-15', placa: 'AAA-1111' },   // 54 dias depois de N2: não em 30, sim em 60
-      { filial: 'MATRIZ', id_nota: 'N4', nf: '4', emissao: '2026-01-05', placa: 'AAA-1111' }    // subgrupo diferente: não conta
-    ],
-    itens: [
-      { filial: 'MATRIZ', id_nota: 'N1', placa: 'AAA-1111', cod_grupo: 'FRE', cod_subgrupo: 'FRE-LON', custo_pecas: 100, custo_mao_de_obra: 0 },
-      { filial: 'MATRIZ', id_nota: 'N2', placa: 'AAA-1111', cod_grupo: 'FRE', cod_subgrupo: 'FRE-LON', custo_pecas: 100, custo_mao_de_obra: 0 },
-      { filial: 'MATRIZ', id_nota: 'N3', placa: 'AAA-1111', cod_grupo: 'FRE', cod_subgrupo: 'FRE-LON', custo_pecas: 100, custo_mao_de_obra: 0 },
-      { filial: 'MATRIZ', id_nota: 'N4', placa: 'AAA-1111', cod_grupo: 'HID', cod_subgrupo: 'HID-BOM', custo_pecas: 100, custo_mao_de_obra: 0 }
-    ]
-  });
-  const r30 = K.reincidencias(base2.itens, 30);
-  assert.equal(r30.total, 1, 'só N1->N2 (19 dias) entra em 30 dias');
-  assert.equal(r30.veiculos, 1);
-  assert.equal(r30.detalhes[0].emissao, '2026-01-20');
-
-  const r60 = K.reincidencias(base2.itens, 60);
-  assert.equal(r60.total, 2, 'N1->N2 e N2->N3 (54 dias) entram em 60 dias');
-
-  assert.equal(K.reincidencias([], 30).total, 0, 'lista vazia não quebra');
-  const semData = K.reincidencias([{ ...base2.itens[0], emissao: '' }, { ...base2.itens[1], emissao: '' }], 30);
-  assert.equal(semData.total, 0, 'item sem data de emissão fica de fora');
+test('oficinas externas e fornecedores de nota', () => {
+  const of = K.porOficinaExterna(osList);
+  assert.equal(of.length, 1);
+  assert.equal(of[0].chave, 'OFICINA Y'); assert.equal(of[0].total, 3500);
+  const forn = K.porFornecedorNota(osList);
+  assert.equal(forn.length, 1);
+  assert.equal(forn[0].chave, 'OFICINA Y'); assert.equal(forn[0].notas, 1);
 });
 
-test('CSV com ; e vírgula decimal, aspas quando precisa', () => {
-  const csv = K.csvItens([{ ...base.itens[0], descricao: 'troca; urgente' }], { FRE: 'Freios' });
+test('lista de notas e CSV', () => {
+  const notas = K.listaNotas(osList);
+  assert.equal(notas.length, 1);
+  assert.equal(notas[0].fornecedor, 'OFICINA Y');
+  const csv = K.csvNotas([{ ...notas[0], fornecedor: 'Oficina; Y' }]);
   const linhas = csv.replace('﻿', '').split('\r\n');
-  assert.equal(linhas[0].split(';')[0], 'filial');
-  assert.ok(linhas[1].includes('"troca; urgente"'));
-  assert.ok(linhas[1].endsWith(';800;200;1000'));
-  assert.ok(linhas[1].includes(';Freios;'));
+  assert.equal(linhas[0].split(';')[0], 'placa');
+  assert.ok(linhas[1].includes('"Oficina; Y"'));
 });

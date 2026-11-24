@@ -1,7 +1,7 @@
 // Peças de tela do sistema de OS usadas pela matriz, filiais e mecânicos.
 import { el, fmt, botaoTema, guardar } from '../ui.js';
 import { GRUPOS, ORDEM_GRUPOS } from '../sistema.js';
-import { STATUS, TIPO_LOCAL, MAX_AUXILIARES, pecasDoGrupo, codificarPeca, decodificarPeca, melhorSemaforo,
+import { STATUS, TIPO_LOCAL, pecasDoGrupo, codificarPeca, decodificarPeca, melhorSemaforo,
   pecaTemPosicao, EIXOS, LADOS } from './regras.js';
 
 export const $ = (id) => document.getElementById(id);
@@ -26,7 +26,7 @@ export function montarTopo(u, { titulo = 'Ordens de serviço', extras = [], menu
   guardar('lokal_perfil', u.perfil);
   const menu = el('div', { class: 'usuario-menu', role: 'menu', hidden: true }, [
     el('div', { class: 'quem' }, [el('b', { text: u.nome }), el('small', { text: u.login })]),
-    u.perfil !== 'MECANICO' ? el('a', { href: '/painel', role: 'menuitem', text: 'Dashboard' }) : null,
+    u.perfil !== 'MECANICO' ? el('a', { href: '/painel#garantias', role: 'menuitem', text: 'Dashboard' }) : null,
     u.perfil === 'ADMIN' ? el('a', { href: '/usuarios', role: 'menuitem', text: 'Usuários' }) : null,
     ...menuExtras,
     el('a', { href: '/trocar-senha', role: 'menuitem', text: 'Trocar minha senha' }),
@@ -43,7 +43,7 @@ export function montarTopo(u, { titulo = 'Ordens de serviço', extras = [], menu
     el('div', { class: 'estado', id: 'estado' }),
     el('div', { class: 'acoes' }, [
       ...extras,
-      u.perfil !== 'MECANICO' ? el('a', { class: 'botao', href: '/painel', title: 'Abrir a dashboard' }, [el('span', { text: '▦' }),
+      u.perfil !== 'MECANICO' ? el('a', { class: 'botao', href: '/painel#garantias', title: 'Abrir a dashboard' }, [el('span', { text: '▦' }),
         el('span', { class: 'texto-longo', text: 'Dashboard' })]) : null,
       botaoTema(), el('div', { class: 'usuario' }, [quem, menu])])
   ]);
@@ -219,7 +219,7 @@ export function buscaVeiculo(lista, { inicial = null } = {}) {
     campoPlaca.value = v.placa || '';
     campoChassi.value = v.chassi || '';
     cartao.replaceChildren(el('div', {}, [el('b', { text: veiculo.placa || 'Sem placa' }), ' · ', veiculo.tipo, ' ', veiculo.modelo]),
-      el('small', { text: `Filial ${veiculo.filial} · ${veiculo.empresa || ''} · ano ${veiculo.ano || '—'} · chassi ${veiculo.chassi}` }));
+      el('small', { text: `Filial ${veiculo.empresa || ''} · ano ${veiculo.ano || '—'} · chassi ${veiculo.chassi}` }));
     cartao.hidden = false;
     ouvintes.forEach((fn) => fn(veiculo));
   }
@@ -308,13 +308,6 @@ function blocoGrupoPecas({ obterVeiculo, aoMudar, aoRemover }) {
   };
 }
 
-/** Escolha de até `max` auxiliares entre uma lista de mecânicos (checkboxes). */
-function escolhaAuxiliares(mecanicos, excluir, max = MAX_AUXILIARES) {
-  const caixa = el('div', { class: 'checks auxiliares-grid' }, mecanicos.filter((m) => m.login !== excluir).map((m) =>
-    el('label', {}, [el('input', { type: 'checkbox', value: m.login }), m.nome + (m.equipe ? ' · ' + m.equipe : '')])));
-  return { caixa, valor: () => [...caixa.querySelectorAll('input:checked')].map((c) => c.value).slice(0, max) };
-}
-
 /**
  * Formulário de "lançar OS feita", compartilhado pela matriz/filial (app.js) e pelo mecânico (mecanico.js).
  * perfil MECANICO: execução sempre interna, no nome do próprio (não escolhe). Os demais escolhem interna/externa.
@@ -399,16 +392,12 @@ export function formularioLancamento({ u, veiculos, mecanicos = [], oficinas = [
   const mecanicoSel = u.perfil !== 'MECANICO'
     ? el('select', {}, [el('option', { value: '', text: 'Escolha o mecânico' }), ...mecanicos.map((m) => el('option', { value: m.login, text: m.nome + (m.equipe ? ' · ' + m.equipe : '') }))])
     : null;
-  const aux = escolhaAuxiliares(mecanicos, u.perfil === 'MECANICO' ? u.login : '');
   const oficinaDl = el('datalist', { id: 'dl-oficinas' }, oficinas.map((o) => el('option', { value: o })));
   const oficinaTxt = el('input', { placeholder: 'Nome da concessionária ou oficina', list: 'dl-oficinas' });
-  const caixaInterna = el('div', { class: 'equipe' }, [mecanicoSel, el('details', { class: 'ajudantes', open: true }, [
-    el('summary', { text: 'Auxiliares (opcional, até ' + MAX_AUXILIARES + ')' }), aux.caixa])]);
+  const caixaInterna = el('div', { class: 'equipe' }, [mecanicoSel]);
   const caixaExterna = el('div', { class: 'largo' }, [el('label', { class: 'campo' }, [el('span', { text: 'Oficina' }), oficinaTxt, oficinaDl])]);
-  let caixaQuem;
-  if (u.perfil === 'MECANICO') {
-    caixaQuem = el('div', { class: 'campo largo' }, [el('span', { text: 'Auxiliares (opcional, até ' + MAX_AUXILIARES + ')' }), aux.caixa]);
-  } else {
+  let caixaQuem = null;
+  if (u.perfil !== 'MECANICO') {
     const bExec = (t, titulo) => el('button', { type: 'button', class: 'opcao-grande', 'aria-pressed': 'false', onclick: (ev) => {
       execucao = t;
       ev.currentTarget.parentElement.querySelectorAll('.opcao-grande').forEach((b) => b.setAttribute('aria-pressed', String(b === ev.currentTarget)));
@@ -438,7 +427,10 @@ export function formularioLancamento({ u, veiculos, mecanicos = [], oficinas = [
     check.addEventListener('change', () => { solicitacaoEscolhida = check.checked ? mais_recente.id : null; });
     solicitacaoEscolhida = mais_recente.id;
     caixaSolicitacao.replaceChildren(el('label', { class: 'check-grande aviso amarelo' }, [check,
-      el('span', { text: 'Este veículo tem uma solicitação de equipe itinerante de ' + dataPt + '. Esta OS atende a ela?' })]));
+      el('span', {}, [
+        'Este veículo tem uma solicitação de equipe itinerante de ' + dataPt + '. Esta OS atende a ela?',
+        mais_recente.sintoma ? el('small', { text: 'O que estava acontecendo: ' + mais_recente.sintoma }) : null
+      ])]));
     caixaSolicitacao.hidden = false;
   };
   if (busca) { busca.ao(atualizarSolicitacao); busca.ao(carregarHistoricoPecas); busca.ao(aoEscolherVeiculo); } else if (veiculoFixo) { atualizarSolicitacao(veiculoFixo); carregarHistoricoPecas(veiculoFixo); }
@@ -494,7 +486,7 @@ export function formularioLancamento({ u, veiculos, mecanicos = [], oficinas = [
         tipo_local: tipoLocal, execucao: u.perfil === 'MECANICO' ? 'INTERNA' : execucao,
         mecanico: u.perfil !== 'MECANICO' && execucao === 'INTERNA' ? mecanicoSel.value : undefined,
         oficina_externa: execucao === 'EXTERNA' ? oficinaTxt.value.trim() : undefined,
-        auxiliares: aux.valor(), km: km.value, horimetro: hor.value, os_atendida: solicitacaoEscolhida,
+        km: km.value, horimetro: hor.value, os_atendida: solicitacaoEscolhida,
         fotoFrente: fFrente.valor(), fotoPainel: fPainel.valor(), fotosDefeito: defeito
       });
     } catch (e) {

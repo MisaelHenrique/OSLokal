@@ -10,7 +10,7 @@ import { banco } from './_lib/banco.js';
 import { listarUsuarios } from './_lib/usuarios.js';
 import {
   podeVer, recortarOS, acoesPossiveis, podeLancar, erroLancamento, erroSolicitacao, erroCorrecao, conferirFinanceiro,
-  lerNumero, numeroOS, MAX_FOTOS_DEFEITO, MAX_AUXILIARES, filiaisDe, decodificarPeca, melhorSemaforo
+  lerNumero, numeroOS, MAX_FOTOS_DEFEITO, filiaisDe, decodificarPeca, melhorSemaforo
 } from '../public/js/os/regras.js';
 
 const LIMITE_LISTA = 3000;
@@ -50,23 +50,16 @@ async function mecanicosAtivos() {
 
 /** Resolve quem executou o serviço: mecânico sempre interno (ele mesmo); filial/matriz escolhem. */
 async function equipeLancamento(u, d) {
-  const mecs = new Set((await mecanicosAtivos()).map((m) => m.login));
-  const auxiliaresDe = (resp) => {
-    const aux = [...new Set((Array.isArray(d.auxiliares) ? d.auxiliares : []).map((x) => texto(x, 80).toLowerCase()))]
-      .filter((x) => x && x !== resp);
-    if (aux.some((a) => !mecs.has(a))) throw new ErroOS(400, 'Auxiliar inválido.');
-    if (aux.length > MAX_AUXILIARES) throw new ErroOS(400, 'No máximo ' + MAX_AUXILIARES + ' auxiliares.');
-    return aux;
-  };
   if (u.perfil === 'MECANICO') {
-    return { execucao: 'INTERNA', direcionada_para: u.login, auxiliares: auxiliaresDe(u.login), oficina_externa: '' };
+    return { execucao: 'INTERNA', direcionada_para: u.login, auxiliares: [], oficina_externa: '' };
   }
   if (d.execucao === 'EXTERNA') {
     return { execucao: 'EXTERNA', direcionada_para: null, auxiliares: [], oficina_externa: texto(d.oficina_externa, 120) };
   }
+  const mecs = new Set((await mecanicosAtivos()).map((m) => m.login));
   const resp = texto(d.mecanico, 80).toLowerCase();
   if (!mecs.has(resp)) throw new ErroOS(400, 'Escolha um mecânico ativo.');
-  return { execucao: 'INTERNA', direcionada_para: resp, auxiliares: auxiliaresDe(resp), oficina_externa: '' };
+  return { execucao: 'INTERNA', direcionada_para: resp, auxiliares: [], oficina_externa: '' };
 }
 
 /** Arquivo enviado antes por /api/fotos: confere dono, tipo e OS. */
@@ -115,7 +108,7 @@ async function lancar(u, d) {
     foto_frente: fotoFrente, foto_painel: fotoPainel, fotos_defeito: fotosDefeito, os_atendida,
     aberta_por: u.login, aberta_em: agora, envio_id: texto(d.envio_id, 64) || null, cancelamento_motivo: '', exemplo: false,
     alterado_em: agora, valor_pecas: null, valor_mao_obra: null, valor_deslocamento: null, valor_total: null,
-    nf_numero: '', fornecedor: '', nf_arquivo: null, ...equipe
+    nf_numero: '', fornecedor: '', nf_arquivo: null, notas: [], ...equipe
   };
   const [os] = await banco.inserir('os', base);
   for (const c of [fotoFrente, fotoPainel, ...fotosDefeito].filter(Boolean)) {
@@ -140,7 +133,7 @@ async function solicitar(u, d) {
     filial: v.filial, sintoma: texto(d.sintoma), cidade: texto(d.cidade, 120), tipo_local: d.tipo_local, pecas: [],
     fotos_defeito: fotos, execucao: 'INTERNA', auxiliares: [], oficina_externa: '', aberta_por: u.login, aberta_em: agora,
     cancelamento_motivo: '', exemplo: false, alterado_em: agora, valor_pecas: null, valor_mao_obra: null,
-    valor_deslocamento: null, valor_total: null, nf_numero: '', fornecedor: '', nf_arquivo: null
+    valor_deslocamento: null, valor_total: null, nf_numero: '', fornecedor: '', nf_arquivo: null, notas: []
   };
   const [os] = await banco.inserir('os', base);
   for (const c of fotos) await banco.atualizar('arquivos', { eq: { caminho: c } }, { os_id: os.id });
@@ -160,8 +153,11 @@ async function cancelar(u, os, d) {
 async function valores(u, os, d) {
   const { erro, valores: vals } = conferirFinanceiro(d);
   if (erro) throw new ErroOS(400, erro);
-  const nf = d.nf_arquivo ? await arquivoValido(d.nf_arquivo, { tipo: 'nf', os_id: os.id }) : (os.nf_arquivo || null);
-  return mudar(os, { ...vals, nf_arquivo: nf }, 'VALORES', u.login);
+  const notas = [];
+  for (const n of vals.notas) {
+    notas.push({ ...n, arquivo: n.arquivo ? await arquivoValido(n.arquivo, { tipo: 'nf', os_id: os.id }) : null });
+  }
+  return mudar(os, { ...vals, notas }, 'VALORES', u.login);
 }
 
 /** Corrige um lançamento errado (só a matriz; não mexe em fotos nem em quem fez o serviço). */
@@ -263,7 +259,7 @@ async function ler(u, q) {
     // só os colegas mecânicos (pra escolher auxiliares), não a lista de usuários inteira
     out.colegas = (await mecanicosAtivos()).filter((m) => m.login !== u.login).map((m) => ({ login: m.login, nome: m.nome }));
     // mínimo pra oferecer "esta OS atende a uma solicitação?" (a equipe itinerante são os próprios mecânicos)
-    out.solicitacoes_abertas = solicitacoesAbertas(todas).map((o) => ({ id: o.id, chassi: o.chassi, aberta_em: o.aberta_em }));
+    out.solicitacoes_abertas = solicitacoesAbertas(todas).map((o) => ({ id: o.id, chassi: o.chassi, aberta_em: o.aberta_em, sintoma: o.sintoma }));
   }
   return out;
 }

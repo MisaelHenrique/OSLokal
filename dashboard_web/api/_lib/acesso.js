@@ -32,20 +32,3 @@ export async function exigir(req, res, { perfis = null, troca = false } = {}) {
   if (perfis && !perfis.includes(u.perfil)) { json(res, 403, { erro: 'Seu perfil não tem acesso a isto.' }); return null; }
   return u;
 }
-
-const TABELAS = ['notas', 'itens', 'veiculos', 'erros', 'filiais'];
-
-/**
- * Dados da dashboard: devolve uma cópia só com o que o usuário pode ver. Lista fechada de campos: o que a fonte
- * mandar a mais não passa. Perfil desconhecido (inclusive mecânico) não vê nada.
- */
-export function recortarPorPerfil(dados, u) {
-  const out = { origem: dados.origem || '', ultima_juncao: dados.ultima_juncao || '', buscado_em: dados.buscado_em || '',
-    perfil: u.perfil };
-  const todas = u.perfil === 'ADMIN' || u.perfil === 'DIRETORIA';
-  const minhas = new Set(u.perfil === 'FILIAL' ? filiaisDoUsuario(u) : []);
-  TABELAS.forEach((t) => {
-    out[t] = (dados[t] || []).filter((x) => todas || minhas.has(x.filial));
-  });
-  return out;
-}
