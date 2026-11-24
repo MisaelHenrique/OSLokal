@@ -128,13 +128,13 @@ button, input, select { font: inherit; color: inherit; }
   background: var(--cartao); border: 1px solid var(--linha); border-radius: 10px; padding: 12px; box-shadow: var(--sombra);
 }
 .filtros .limpar { align-self: end; }
-.abas { display: flex; gap: 4px; margin: 16px 0 12px; border-bottom: 1px solid var(--linha); overflow-x: auto; }
+.abas { display: flex; gap: 8px; margin: 16px 0 12px; padding-bottom: 4px; overflow-x: auto; }
 .abas button {
-  border: 0; background: none; padding: 10px 14px; font-weight: 600; color: var(--tinta2); cursor: pointer;
-  border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap;
+  border: 1px solid var(--linha); background: var(--cartao); border-radius: 999px; padding: 9px 16px;
+  font-weight: 600; color: var(--tinta2); cursor: pointer; white-space: nowrap;
 }
-.abas button[aria-selected="true"] { color: var(--tinta); border-bottom-color: var(--marca); }
-.abas button:hover { color: var(--tinta); }
+.abas button[aria-selected="true"] { color: var(--marca-tinta); background: var(--marca); border-color: var(--marca); }
+.abas button:hover:not([aria-selected="true"]) { color: var(--tinta); border-color: var(--linha-forte); }
 
 .aviso { border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; display: flex; gap: 8px; align-items: flex-start; }
 .aviso.amarelo { background: var(--aviso-fundo); color: var(--aviso); }

@@ -10,8 +10,8 @@ import { relatorioReincidencias, decodificarPeca } from './os/regras.js';
 import { dataLocalISO } from './os/comum.js';
 
 const ABAS = [
-  ['geral', 'Visão geral'], ['grupos', 'Grupos de peças'], ['veiculos', 'Veículos'], ['pneus', 'Pneus'],
-  ['fornecedores', 'Fornecedores'], ['notas', 'Notas fiscais'], ['garantias', 'Reincidências e garantias']
+  ['geral', 'Visão geral'], ['garantias', 'Reincidências e garantias'], ['grupos', 'Grupos de peças'],
+  ['veiculos', 'Veículos'], ['pneus', 'Pneus'], ['fornecedores', 'Fornecedores'], ['notas', 'Notas fiscais']
 ];
 const PRESETS = [['12m', 'Últimos 12 meses'], ['3m', 'Últimos 3 meses'], ['ano', 'Este ano'], ['anoPassado', 'Ano passado'],
   ['tudo', 'Todo o período'], ['custom', 'Escolher meses']];
@@ -42,6 +42,7 @@ async function iniciar() {
     E.usuario = s.usuario;
     if (s.usuario.trocar_senha) return location.replace('/trocar-senha');
     if (s.usuario.perfil === 'MECANICO') return location.replace('/os/mecanico');
+    if (s.usuario.perfil === 'DIRETORIA' && !location.hash) E.aba = 'garantias';
   } catch {
     return;   // api.js já mandou para o login
   }
